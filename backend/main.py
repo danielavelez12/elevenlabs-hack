@@ -17,6 +17,11 @@ async def root():
     return {"message": "Audio processing server is running"}
 
 
+# TODO: Daniela
+async def translate_text(text: str):
+
+
+
 @app.post("/upload-audio")
 async def upload_audio(audio_file: UploadFile = File(...)):
     try:
@@ -27,6 +32,13 @@ async def upload_audio(audio_file: UploadFile = File(...)):
             "content_type": audio_file.content_type,
             "file_size": len(content),
         }
+        # TODO: convert audio to text (Reet)
+        translated_text = ""
+
+        # TODO: translate text (Daniela)
+        translated_text = translate_text(translated_text)
+
+
     except Exception as e:
         return {"error": str(e)}
 
