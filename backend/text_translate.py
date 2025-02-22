@@ -161,7 +161,7 @@ async def translate_text_stream(
 
 if __name__ == "__main__":
     ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
-    VOICE_ID = "TX3LPaxmHKxFdv7VOQHJ"
+    VOICE_ID = "vs0hFPfkxatNyXbiDSVw"
 
     async def main():
         server = await start_websocket_server()

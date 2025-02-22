@@ -1,10 +1,10 @@
 import "./App.css";
-import SetupVoice from "./SetupVoice";
+import AudioStream from "./AudioStream";
 function App() {
   return (
     <>
-      {/* <AudioStream /> */}
-      <SetupVoice apiKey={import.meta.env.VITE_ELEVENLABS_API_KEY} />
+      <AudioStream />
+      {/* <SetupVoice apiKey={import.meta.env.VITE_ELEVENLABS_API_KEY} /> */}
     </>
   );
 }
