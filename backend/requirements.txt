@@ -16,3 +16,7 @@ uvicorn==0.34.0
 openai==1.63.2
 websockets==15.0
 mpv==1.0.7
+aiohttp==3.11.12
+psycopg2-binary==2.9.10
+sqlalchemy==2.0.38
+typing-extensions==4.12.2

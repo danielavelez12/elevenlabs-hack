@@ -124,6 +124,7 @@ async def text_to_speech_input_streaming(voice_id, text_iterator, broadcast=Fals
             listen_task = asyncio.create_task(stream(listen()))
 
         async for text in text_chunker(text_iterator):
+            print(f"Sending to websocket: {text}")
             await websocket.send(json.dumps({"text": text}))
 
         await websocket.send(json.dumps({"end_of_stream": True}))
@@ -164,7 +165,7 @@ if __name__ == "__main__":
 
     async def main():
         server = await start_websocket_server()
-        await asyncio.sleep(1)
+        await asyncio.sleep(3)
         await translate_text_stream("Hello, how are you?", "Spanish", broadcast=True)
         await server.wait_closed()
 
