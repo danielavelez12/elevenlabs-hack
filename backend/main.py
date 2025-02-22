@@ -1,3 +1,4 @@
+from backend.text_translate import translate_text
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,27 +18,22 @@ async def root():
     return {"message": "Audio processing server is running"}
 
 
-# TODO: Daniela
-async def translate_text(text: str):
-
-
-
 @app.post("/upload-audio")
 async def upload_audio(audio_file: UploadFile = File(...)):
     try:
         content = await audio_file.read()
 
-        return {
-            "filename": audio_file.filename,
-            "content_type": audio_file.content_type,
-            "file_size": len(content),
-        }
         # TODO: convert audio to text (Reet)
         translated_text = ""
 
         # TODO: translate text (Daniela)
         translated_text = translate_text(translated_text)
 
+        return {
+            "filename": audio_file.filename,
+            "content_type": audio_file.content_type,
+            "file_size": len(content),
+        }
 
     except Exception as e:
         return {"error": str(e)}
