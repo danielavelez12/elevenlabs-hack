@@ -1,12 +1,18 @@
 from text_translate import translate_text, translate_text_stream, start_websocket_server
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, WebSocket, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-import os
-import aiohttp
-from dotenv import load_dotenv
+from services.speech_to_text.speechmatics_client import SpeechmaticsClient
 from sqlalchemy import create_engine, text
 from datetime import datetime
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+import numpy as np
+import aiohttp
+import asyncio
+import os
+import io
+
+load_dotenv()
 
 
 @asynccontextmanager
@@ -44,31 +50,75 @@ engine = create_engine(DB_URL)
 # Global variable for websocket server
 websocket_server = None
 
+class AudioProcessor:
+    def __init__(self):
+        self.wave_data = bytearray()
+        self.read_offset = 0
+        
+    async def read(self, chunk_size):
+        while self.read_offset + chunk_size > len(self.wave_data):
+            await asyncio.sleep(0.001)
+        new_offset = self.read_offset + chunk_size
+        data = self.wave_data[self.read_offset:new_offset]
+        self.read_offset = new_offset
+        return data
+
+    def write_audio(self, data):
+        try:
+            # Data is already in float32 PCM format, just extend the buffer
+            self.wave_data.extend(data)
+        except Exception as e:
+            print(f"Error handling audio data: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+        return
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    
+    audio_processor = AudioProcessor()
+
+    def handle_transcript(text):
+        print(f"Received transcript: {text}")
+    
+    client = SpeechmaticsClient(
+        api_key=os.getenv("SPEECHMATICS_API_KEY"),
+        language="en",
+        sample_rate=16000,
+        on_transcript=handle_transcript
+    )
+    
+    try:
+        print("Starting transcription process")
+
+        transcription_task = asyncio.create_task(
+            client.transcribe_audio_stream(audio_processor)
+        )
+
+        while True:
+            try:
+                data = await websocket.receive_bytes()
+                
+                audio_processor.write_audio(data)
+            except Exception as ws_error:
+                print(f"WebSocket error: {ws_error}")
+                break
+            
+    except Exception as e:
+        print(f"Error in main loop: {e}")
+    finally:
+        if 'transcription_task' in locals():
+            transcription_task.cancel()
+            try:
+                await transcription_task
+            except asyncio.CancelledError:
+                print("Transcription task cancelled")
+        print("WebSocket connection closed")
 
 @app.get("/")
 async def root():
     return {"message": "Audio processing server is running"}
-
-
-@app.post("/upload-audio")
-async def upload_audio(audio_file: UploadFile = File(...)):
-    try:
-        content = await audio_file.read()
-
-        # TODO: convert audio to text (Reet)
-        translated_text = ""
-
-        # TODO: translate text (Daniela)
-        translated_text = translate_text(translated_text)
-
-        return {
-            "filename": audio_file.filename,
-            "content_type": audio_file.content_type,
-            "file_size": len(content),
-        }
-
-    except Exception as e:
-        return {"error": str(e)}
 
 
 @app.post("/create-voice")
@@ -232,5 +282,4 @@ async def get_user_voices(user_id: str):
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=8000)

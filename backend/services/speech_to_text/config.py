@@ -1,11 +1,10 @@
 from pydantic_settings import BaseSettings
 from pydantic.fields import Field
 
-class AssemblyAIConfig(BaseSettings):
-    API_KEY: str = Field(..., env="ASSEMBLYAI_API_KEY")
-    SAMPLE_RATE: int = 44_100
+class SpeechmaticsConfig(BaseSettings):
+    API_KEY: str = Field(..., env="SPEECHMATICS_API_KEY")
 
     class Config:
-        env_prefix = "ASSEMBLYAI_"
+        env_prefix = "SPEECHMATICS_"
 
-config = AssemblyAIConfig()
+config = SpeechmaticsConfig()
