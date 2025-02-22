@@ -8,7 +8,10 @@ const App: React.FC = () => {
   return (
     <Router>
       <div className="flex h-screen">
-        <Navbar />
+        <div className="flex flex-col items-center pt-10">
+          <div className="text-1xl font-bold text-white">skype</div>
+          <Navbar />
+        </div>
         <main className="flex-1 p-6">
           <Routes>
             <Route path="/voice-setup" element={<VoiceSetup />} />

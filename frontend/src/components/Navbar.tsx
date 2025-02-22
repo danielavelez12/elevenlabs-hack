@@ -12,6 +12,7 @@ const StyledNavbarLink = styled(Link)`
   border-radius: 0.25rem;
   transition: background-color 0.2s ease-in-out;
   color: white;
+  width: 100%;
   &:hover {
     background-color: #202533;
   }
@@ -30,8 +31,8 @@ const NavbarContainer = styled.div`
 const Navbar: React.FC = () => {
   return (
     <NavbarContainer>
-      <div className="p-6">
-        <div className="space-y-2">
+      <div className="w-24">
+        <div className="space-y-2 p-2">
           <StyledNavbarLink to="/voice-setup">
             <Settings className="h-5 w-5" />
           </StyledNavbarLink>

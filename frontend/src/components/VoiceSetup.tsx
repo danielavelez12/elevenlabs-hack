@@ -1,39 +1,167 @@
 "use client";
 
+import { CheckCircle2, Loader2 } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
+import { Card, CardContent } from "./ui/card";
+import { Input } from "./ui/input";
 
 const VoiceSetup: React.FC = () => {
+  // State management
+  const [voiceName, setVoiceName] = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [voiceId, setVoiceId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleRecord = () => {
-    setIsRecording(!isRecording);
-    // Implement actual recording logic here
+  // Refs for recording
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const startRecording = async () => {
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.addEventListener("dataavailable", (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      });
+
+      mediaRecorder.addEventListener("stop", () => {
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        setAudioBlob(blob);
+      });
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      setError("Could not access your microphone.");
+    }
   };
 
-  const handleCreateVoice = () => {
-    // Implement voice creation logic here
-    console.log("Creating voice...");
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const handleCreateVoice = async () => {
+    if (!voiceName) {
+      setError("Please enter a voice name.");
+      return;
+    }
+    if (!audioBlob) {
+      setError("Please record some audio first.");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setIsSuccess(false);
+
+    const formData = new FormData();
+    formData.append("voice_name", voiceName);
+    formData.append("audio_file", audioBlob, "recording.webm");
+
+    try {
+      const response = await fetch("http://localhost:8000/create-voice", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("API request failed");
+      }
+
+      const data = await response.json();
+      console.log("Voice clone created:", data);
+      setVoiceId(data.voice_id);
+      // Reset form fields
+      setVoiceName("");
+      setAudioBlob(null);
+      setIsSuccess(true);
+    } catch (err) {
+      console.error("Error creating voice clone:", err);
+      setError("Error creating voice clone.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4 text-white">Voice Setup</h2>
-      <Button
-        className={`px-4 py-2 rounded ${
-          isRecording ? "bg-red-500" : "bg-blue-500"
-        } text-white mr-4`}
-        onClick={handleRecord}
-      >
-        {isRecording ? "Stop Recording" : "Start Recording"}
-      </Button>
-      <Button
-        className="px-4 py-2 rounded bg-green-500 text-white hover:bg-green-600"
-        onClick={handleCreateVoice}
-      >
-        Create Voice
-      </Button>
+    <div className="flex flex-col space-y-6 items-center justify-center h-full max-w-md mx-auto p-6">
+      {error && (
+        <Alert variant="destructive" className="animate-float-in">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      {isSuccess ? (
+        <Card className="flex items-center text-green-500 animate-float-in">
+          <CheckCircle2 className="h-5 w-5 mr-2" />
+          <span>Voice setup finished</span>
+        </Card>
+      ) : (
+        <>
+          <Card className="animate-float-in">
+            <CardContent>
+              <Input
+                id="voiceName"
+                className="text-white hover:text-white"
+                value={voiceName}
+                onChange={(e) => setVoiceName(e.target.value)}
+                placeholder="Enter voice name"
+              />
+              <Button
+                onClick={isRecording ? stopRecording : startRecording}
+                className="w-full text-white bg-blue-500 hover:bg-blue-600 h-10 mt-4"
+              >
+                {isRecording
+                  ? "Stop recording"
+                  : audioBlob
+                  ? "Record again"
+                  : "Start recording"}
+              </Button>
+            </CardContent>
+          </Card>
+          {audioBlob && (
+            <Card className="animate-float-in">
+              <CardContent>
+                <audio
+                  controls
+                  src={URL.createObjectURL(audioBlob)}
+                  className="w-full mb-4"
+                />
+                <Button
+                  variant="default"
+                  onClick={handleCreateVoice}
+                  className="w-full text-white bg-green-500 hover:bg-green-600 h-10"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating voice...
+                    </>
+                  ) : (
+                    "Create voice"
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
     </div>
   );
 };
