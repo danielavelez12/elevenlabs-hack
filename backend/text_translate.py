@@ -1,3 +1,4 @@
+from websocket import broadcast_audio_stream, start_websocket_server
 from openai import OpenAI
 from openai import AsyncOpenAI
 import asyncio
@@ -89,7 +90,7 @@ async def stream(audio_stream):
     mpv_process.wait()
 
 
-async def text_to_speech_input_streaming(voice_id, text_iterator):
+async def text_to_speech_input_streaming(voice_id, text_iterator, broadcast=False):
     """Send text to ElevenLabs API and stream the returned audio."""
     uri = f"wss://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream-input?model_id=eleven_flash_v2_5"
 
@@ -117,17 +118,22 @@ async def text_to_speech_input_streaming(voice_id, text_iterator):
                     print("Connection closed")
                     break
 
-        listen_task = asyncio.create_task(stream(listen()))
+        if broadcast:
+            listen_task = asyncio.create_task(broadcast_audio_stream(listen()))
+        else:
+            listen_task = asyncio.create_task(stream(listen()))
 
         async for text in text_chunker(text_iterator):
             await websocket.send(json.dumps({"text": text}))
 
-        await websocket.send(json.dumps({"text": ""}))
+        await websocket.send(json.dumps({"end_of_stream": True}))
 
         await listen_task
 
 
-async def translate_text_stream(original_text: str, target_language: str = "Spanish"):
+async def translate_text_stream(
+    original_text: str, target_language: str = "Spanish", broadcast=False
+):
     """Streaming version of translate_text that works with ElevenLabs"""
     prompt = translation_prompt(original_text, target_language)
     aclient = AsyncOpenAI(
@@ -147,7 +153,7 @@ async def translate_text_stream(original_text: str, target_language: str = "Span
                 if chunk.choices[0].delta.content:
                     yield chunk.choices[0].delta.content
 
-        await text_to_speech_input_streaming(VOICE_ID, text_iterator())
+        await text_to_speech_input_streaming(VOICE_ID, text_iterator(), broadcast)
     except Exception as e:
         raise Exception(f"Translation failed: {str(e)}")
 
@@ -155,4 +161,11 @@ async def translate_text_stream(original_text: str, target_language: str = "Span
 if __name__ == "__main__":
     ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
     VOICE_ID = "TX3LPaxmHKxFdv7VOQHJ"
-    asyncio.run(translate_text_stream("Hello, how are you?", "Spanish"))
+
+    async def main():
+        server = await start_websocket_server()
+        await asyncio.sleep(1)
+        await translate_text_stream("Hello, how are you?", "Spanish", broadcast=True)
+        await server.wait_closed()
+
+    asyncio.run(main())
