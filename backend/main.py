@@ -1,4 +1,4 @@
-from text_translate import translate_text
+from text_translate import translate_text, translate_text_stream, start_websocket_server
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -6,8 +6,24 @@ import aiohttp
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from datetime import datetime
+from contextlib import asynccontextmanager
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    global websocket_server
+    websocket_server = await start_websocket_server()
+
+    yield
+
+    # Shutdown
+    if websocket_server:
+        websocket_server.close()
+        await websocket_server.wait_closed()
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,6 +40,9 @@ ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 # Database setup
 DB_URL = os.getenv("DB_URL")
 engine = create_engine(DB_URL)
+
+# Global variable for websocket server
+websocket_server = None
 
 
 @app.get("/")
@@ -107,6 +126,19 @@ async def create_voice(voice_name: str = Form(...), audio_file: UploadFile = Fil
                     "message": "Voice created and stored successfully",
                 }
 
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/start-call")
+async def start_call():
+    try:
+        if not websocket_server:
+            raise Exception("WebSocket server not initialized")
+
+        test_text = "Hello, how are you?"
+        await translate_text_stream(test_text, "Spanish", broadcast=True)
+        return {"message": "Call started successfully"}
     except Exception as e:
         return {"error": str(e)}
 

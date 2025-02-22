@@ -100,7 +100,7 @@ async def text_to_speech_input_streaming(voice_id, text_iterator, broadcast=Fals
                 {
                     "text": " ",
                     "voice_settings": {"stability": 0.5, "similarity_boost": 0.8},
-                    "xi_api_key": ELEVENLABS_API_KEY,
+                    "xi_api_key": os.getenv("ELEVENLABS_API_KEY"),
                 }
             )
         )
@@ -154,14 +154,16 @@ async def translate_text_stream(
                 if chunk.choices[0].delta.content:
                     yield chunk.choices[0].delta.content
 
-        await text_to_speech_input_streaming(VOICE_ID, text_iterator(), broadcast)
+        await text_to_speech_input_streaming(
+            "xOWgg0W8m4WCIRefvjJv", text_iterator(), broadcast
+        )
     except Exception as e:
         raise Exception(f"Translation failed: {str(e)}")
 
 
 if __name__ == "__main__":
     ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
-    VOICE_ID = "vs0hFPfkxatNyXbiDSVw"
+    VOICE_ID = "YfQgJYCithpNui6mhEWk"
 
     async def main():
         server = await start_websocket_server()
