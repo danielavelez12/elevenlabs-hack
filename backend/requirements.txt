@@ -14,3 +14,5 @@ starlette==0.45.3
 typing_extensions==4.12.2
 uvicorn==0.34.0
 openai==1.63.2
+websockets==15.0
+mpv==1.0.7
