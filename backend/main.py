@@ -15,8 +15,44 @@ import websockets
 from shared_state import connected_clients, ongoing_calls
 import base64
 import json
+from services.audio_input_handler import AudioInputHandler
+from services.audio_output_handler import AudioOutputHandler
+from multiprocessing import Process, Queue
+import atexit
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
+
+
+class AudioProcessor:
+    def __init__(self):
+        self.wave_data = bytearray()
+        self.read_offset = 0
+
+    async def read(self, chunk_size):
+        while self.read_offset + chunk_size > len(self.wave_data):
+            await asyncio.sleep(0.001)
+        new_offset = self.read_offset + chunk_size
+        data = self.wave_data[self.read_offset : new_offset]
+        self.read_offset = new_offset
+        return data
+
+    def clear_buffer(self):
+        self.wave_data = bytearray()
+        self.read_offset = 0
+
+    def write_audio(self, data):
+        try:
+            # Data is already in float32 PCM format, just extend the buffer
+            self.wave_data.extend(data)
+        except Exception as e:
+            print(f"Error handling audio data: {str(e)}")
+            import traceback
+
+            print(traceback.format_exc())
+        return
 
 
 @asynccontextmanager
@@ -77,131 +113,33 @@ engine = create_engine(DB_URL)
 websocket_server = None
 
 
-class AudioProcessor:
-    def __init__(self):
-        self.wave_data = bytearray()
-        self.read_offset = 0
-
-    async def read(self, chunk_size):
-        while self.read_offset + chunk_size > len(self.wave_data):
-            await asyncio.sleep(0.001)
-        new_offset = self.read_offset + chunk_size
-        data = self.wave_data[self.read_offset : new_offset]
-        self.read_offset = new_offset
-        return data
-
-    def clear_buffer(self):
-        self.wave_data = bytearray()
-        self.read_offset = 0
-
-    def write_audio(self, data):
-        try:
-            # Data is already in float32 PCM format, just extend the buffer
-            self.wave_data.extend(data)
-        except Exception as e:
-            print(f"Error handling audio data: {str(e)}")
-            import traceback
-
-            print(traceback.format_exc())
-        return
-
-
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     # Extract query parameters
     query_params = dict(websocket.query_params)
     user_id = query_params.get("user_id")
-    voice_id = None
-    source_language_code = None
-    target_language_code = None
-    try:
-        with engine.connect() as conn:
-            query = text(
-                """
-                SELECT external_id
-                FROM voices
-                WHERE user_id = :user_id
-                ORDER BY created_at DESC
-                LIMIT 1
-            """
-            )
-            result = conn.execute(query, {"user_id": user_id})
-            voice_record = result.fetchone()
-            if voice_record:
-                voice_id = voice_record.external_id
-
-            query = text(
-                """
-                SELECT language_code
-                FROM users
-                WHERE id = :user_id
-            """
-            )
-            result = conn.execute(query, {"user_id": user_id})
-            source_language_code = result.fetchone().language_code
-    except Exception as e:
-        print(f"Error fetching voice ID: {e}")
-
-    print(f"User ID: {user_id}")
-    print(f"Language code: {source_language_code}")
 
     buffer = []
     await websocket.accept()
 
+    # Initialize the audio processor
     audio_processor = AudioProcessor()
-    transcription_task = None  # Initialize as None
-
-    def handle_transcript(text):
-        print(f"Received transcript: {text}")
-        print(f"Language code: {source_language_code}")
-        buffer.append(text)
-        print(f"Buffer: {buffer}")
-
-    client = SpeechmaticsClient(
-        api_key=os.getenv("SPEECHMATICS_API_KEY"),
-        language=source_language_code,
-        sample_rate=16000,
-        on_transcript=handle_transcript,
-    )
 
     try:
-        print("Starting transcription process")
-
-        # Start initial transcription task
-        transcription_task = asyncio.create_task(
-            client.transcribe_audio_stream(audio_processor)
-        )
-
-        print("ongoing calls: ", ongoing_calls)
-
-        id_1, id_2 = next(
-            (
-                call
-                for call in ongoing_calls
-                if call[0] == user_id or call[1] == user_id
-            ),
-            None,
-        )
-        recipient_id = id_1 if id_1 != user_id else id_2
-        print("recipient id: ", recipient_id)
-        try:
-            with engine.connect() as conn:
-                query = text(
-                    """
-                    SELECT language_code
-                    FROM users
-                    WHERE id = :recipient_id
-                """
-                )
-                result = conn.execute(query, {"recipient_id": recipient_id})
-                target_language_code = result.fetchone().language_code
-        except Exception as e:
-            print(f"Error fetching voice ID: {e}")
-
         while True:
             try:
                 message = await websocket.receive_text()
+                print("message: ", message)
                 message_data = json.loads(message)
+
+                # Handle new_audio message
+                if message_data.get("type") == "new_audio":
+                    audio_length = message_data.get("length")
+                    print(f"New audio received, length: {audio_length}")
+                    # Add logic to process the new audio data here
+                    # For example, you might want to read from the buffer
+                    # or trigger some other processing
+
                 audio_base64 = message_data.get("audio", "")
                 data = base64.b64decode(audio_base64)
                 terminal = message_data.get("terminal", False)
@@ -212,36 +150,43 @@ async def websocket_endpoint(websocket: WebSocket):
                     if len(cleaned_buffer) == 0:
                         print("Buffer is empty, skipping")
                         continue
-                    # Cancel existing transcription task
-                    if transcription_task:
-                        transcription_task.cancel()
-                        try:
-                            await transcription_task
-                        except asyncio.CancelledError:
-                            print("Transcription task cancelled")
 
                     print("buffer: ", cleaned_buffer)
-                    await translate_text_stream(
-                        " ".join(cleaned_buffer),
-                        source_language_code,
-                        target_language_code,
-                        broadcast=True,
-                        voice_id=voice_id,
-                        recipient_id=recipient_id,
+                    # Process the cleaned buffer here if needed
+
+                else:
+                    # Write audio data to the processor
+                    audio_processor.write_audio(data)
+
+                    call = [
+                        call
+                        for call in ongoing_calls
+                        if call["caller"]["id"] == user_id
+                        or call["recipient"]["id"] == user_id
+                    ]
+                    user_item = (
+                        call[0]["caller"]
+                        if call[0]["caller"]["id"] == user_id
+                        else call[0]["recipient"]
                     )
-                    buffer = []
-                    audio_processor.clear_buffer()
-                    print(
-                        "Creating new transcription task, audio processor: ",
-                        audio_processor,
+                    client = user_item["transcription_client"]
+
+                    async def transcribe_audio_async(processor, client):
+                        while True:
+                            # Get processed audio data
+                            processed_data = processor.get_processed_audio()
+                            if processed_data is None:
+                                break  # Exit the loop if None is received
+                            transcript = await client.transcribe_audio_stream(
+                                processed_data
+                            )
+                            print(f"Transcription: {transcript}")
+
+                    # Start the transcription process as an asyncio task
+                    transcription_task = asyncio.create_task(
+                        transcribe_audio_async(audio_processor, client)
                     )
 
-                    # Start new transcription task
-                    transcription_task = asyncio.create_task(
-                        client.transcribe_audio_stream(audio_processor)
-                    )
-                else:
-                    audio_processor.write_audio(data)
             except Exception as ws_error:
                 print(f"WebSocket error: {ws_error}")
                 break
@@ -250,16 +195,16 @@ async def websocket_endpoint(websocket: WebSocket):
         print(f"Error in main loop: {e}")
     finally:
         # Cancel transcription task if it exists
-        if "transcription_task" in locals():
-            transcription_task.cancel()
-            try:
-                await transcription_task
-            except asyncio.CancelledError:
-                print("Transcription task cancelled")
+        # if "transcription_task" in locals():
+        #     transcription_task.cancel()
+        #     try:
+        #         await transcription_task
+        #     except asyncio.CancelledError:
+        #         print("Transcription task cancelled")
 
-        # Clean up audio processor
-        if "audio_processor" in locals():
-            audio_processor.clear_buffer()
+        # # Clean up audio processor
+        # if "audio_processor" in locals():
+        #     audio_processor.clear_buffer()
 
         # Close websocket connection explicitly
         try:
@@ -409,7 +354,12 @@ async def end_call(data: dict):
         if not caller_id or not recipient_id:
             raise HTTPException(status_code=400, detail="Missing user IDs")
 
-        ongoing_calls.remove((caller_id, recipient_id))
+        ongoing_calls = [
+            call
+            for call in ongoing_calls
+            if call["caller"]["id"] != caller_id
+            and call["recipient"]["id"] != recipient_id
+        ]
 
         end_signal = {
             "type": "call_ended",
@@ -611,8 +561,71 @@ async def accept_call(data: dict):
     print("Accepting call")
     caller_id = data.get("caller_id")
     recipient_id = data.get("recipient_id")
+    source_language_code = None
+    target_language_code = None
 
-    ongoing_calls.append((caller_id, recipient_id))
+    with engine.connect() as conn:
+        query = text(
+            """
+            SELECT language_code
+            FROM users
+            WHERE id = :user_id
+        """
+        )
+        result = conn.execute(query, {"user_id": recipient_id})
+        target_language_code = result.fetchone().language_code
+        query = text(
+            """
+                    SELECT language_code
+                    FROM users
+                    WHERE id = :user_id
+                """
+        )
+        result = conn.execute(query, {"user_id": caller_id})
+        source_language_code = result.fetchone().language_code
+
+    def handle_transcript(buffer):
+        def add_text(text):
+            buffer.append(text)
+
+        return add_text
+
+    # Initialize the SpeechmaticsClient
+    caller_input_buffer = []
+
+    speechmatics_caller_client = SpeechmaticsClient(
+        api_key=os.getenv("SPEECHMATICS_API_KEY"),
+        language=source_language_code,
+        sample_rate=16000,
+        on_transcript=handle_transcript(caller_input_buffer),
+    )
+
+    recipient_input_buffer = []
+    speechmatics_recipient_client = SpeechmaticsClient(
+        api_key=os.getenv("SPEECHMATICS_API_KEY"),
+        language=target_language_code,
+        sample_rate=16000,
+        on_transcript=handle_transcript(recipient_input_buffer),
+    )
+
+    new_call = {
+        "caller": {
+            "id": caller_id,
+            "language_code": source_language_code,
+            "voice_id": None,
+            "input_text_buffer": caller_input_buffer,
+            "transcription_client": speechmatics_caller_client,
+        },
+        "recipient": {
+            "id": recipient_id,
+            "language_code": target_language_code,
+            "voice_id": None,
+            "input_text_buffer": recipient_input_buffer,
+            "transcription_client": speechmatics_recipient_client,
+        },
+    }
+
+    ongoing_calls.append(new_call)
 
     if not caller_id or not recipient_id:
         raise HTTPException(status_code=400, detail="Missing caller_id or recipient_id")
@@ -627,6 +640,18 @@ async def accept_call(data: dict):
         await connected_clients[recipient_id].send_json(
             {"type": "call_accepted", "caller_id": caller_id}
         )
+
+
+def transcribe_audio(audio_queue: Queue, speechmatics_client: SpeechmaticsClient):
+    while True:
+        # Wait for new audio data
+        data = audio_queue.get()
+        if data is None:
+            break  # Exit the loop if None is received
+
+        # Transcribe the audio data
+        transcript = speechmatics_client.transcribe_audio(data)
+        print(f"Transcription: {transcript}")
 
 
 if __name__ == "__main__":
