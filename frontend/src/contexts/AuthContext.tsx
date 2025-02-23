@@ -1,10 +1,4 @@
-import {
-  createContext,
-  ReactNode,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import React, { ReactNode, useContext, useEffect, useState } from "react";
 
 type User = {
   id: string;
@@ -28,7 +22,7 @@ type AuthContextType = {
   audioData?: string;
 };
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
