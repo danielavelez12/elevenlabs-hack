@@ -27,7 +27,9 @@ completion = client.chat.completions.create(
 
 
 def translation_prompt(original_text: str, source_language: str, target_language: str):
-    print(f"Translating from language code: {source_language} to language code: {target_language}: {original_text}")
+    print(
+        f"Translating from language code: {source_language} to language code: {target_language}: {original_text}"
+    )
     return f"Translate the following text from language code: {source_language} to language code: {target_language}: {original_text}"
 
 
@@ -143,6 +145,9 @@ async def translate_text_stream(
     voice_id="xeg56Dz2Il4WegdaPo82",
 ):
     """Streaming version of translate_text that works with ElevenLabs"""
+    print(
+        f"Translating from language code: {source_language} to language code: {target_language}: {original_text}"
+    )
     prompt = translation_prompt(original_text, source_language, target_language)
     aclient = AsyncOpenAI(
         organization="org-wTKqrfyGm4y0SrDgy5jzh9SH",

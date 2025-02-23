@@ -12,11 +12,12 @@ import asyncio
 import os
 import io
 import websockets
-from shared_state import connected_clients
+from shared_state import connected_clients, ongoing_calls
 import base64
 import json
 
 load_dotenv()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -106,10 +107,39 @@ async def websocket_endpoint(websocket: WebSocket):
     # Extract query parameters
     query_params = dict(websocket.query_params)
     user_id = query_params.get("user_id")
-    language_code = query_params.get("language_code", "en")  # default to English if not specified
+    voice_id = None
+    source_language_code = None
+    target_language_code = None
+    try:
+        with engine.connect() as conn:
+            query = text(
+                """
+                SELECT external_id
+                FROM voices
+                WHERE user_id = :user_id
+                ORDER BY created_at DESC
+                LIMIT 1
+            """
+            )
+            result = conn.execute(query, {"user_id": user_id})
+            voice_record = result.fetchone()
+            if voice_record:
+                voice_id = voice_record.external_id
+
+            query = text(
+                """
+                SELECT language_code
+                FROM users
+                WHERE id = :user_id
+            """
+            )
+            result = conn.execute(query, {"user_id": user_id})
+            source_language_code = result.fetchone().language_code
+    except Exception as e:
+        print(f"Error fetching voice ID: {e}")
 
     print(f"User ID: {user_id}")
-    print(f"Language code: {language_code}")
+    print(f"Language code: {source_language_code}")
 
     buffer = []
     await websocket.accept()
@@ -118,13 +148,13 @@ async def websocket_endpoint(websocket: WebSocket):
 
     def handle_transcript(text):
         print(f"Received transcript: {text}")
-        print(f"Language code: {language_code}")
+        print(f"Language code: {source_language_code}")
         buffer.append(text)
         print(f"Buffer: {buffer}")
 
     client = SpeechmaticsClient(
         api_key=os.getenv("SPEECHMATICS_API_KEY"),
-        language=language_code,
+        language=source_language_code,
         sample_rate=16000,
         on_transcript=handle_transcript,
     )
@@ -135,6 +165,33 @@ async def websocket_endpoint(websocket: WebSocket):
         transcription_task = asyncio.create_task(
             client.transcribe_audio_stream(audio_processor)
         )
+
+        print("ongoing calls: ", ongoing_calls)
+
+        id_1, id_2 = next(
+            (
+                call
+                for call in ongoing_calls
+                if call[0] == user_id or call[1] == user_id
+            ),
+            None,
+        )
+        recipient_id = id_1 if id_1 != user_id else id_2
+        print("recipient id: ", recipient_id)
+        try:
+            with engine.connect() as conn:
+                query = text(
+                    """
+                    SELECT language_code
+                    FROM users
+                    WHERE id = :recipient_id
+                """
+                )
+                result = conn.execute(query, {"recipient_id": recipient_id})
+                print("language code query result", result)
+                target_language_code = result.fetchone().language_code
+        except Exception as e:
+            print(f"Error fetching voice ID: {e}")
 
         while True:
             try:
@@ -147,11 +204,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 if terminal:
                     print(f"Terminal chunk received: {buffer}")
                     await translate_text_stream(
-                        ' '.join(buffer),
-                        language_code,
-                        "en",
+                        " ".join(buffer),
+                        source_language_code,
+                        target_language_code,
                         broadcast=True,
-                        voice_id="xeg56Dz2Il4WegdaPo82",
+                        voice_id=voice_id,
                     )
                     buffer = []
                 else:
@@ -311,6 +368,8 @@ async def end_call(data: dict):
         if not caller_id or not recipient_id:
             raise HTTPException(status_code=400, detail="Missing user IDs")
 
+        ongoing_calls.remove((caller_id, recipient_id))
+
         end_signal = {
             "type": "call_ended",
             "caller_id": caller_id,
@@ -376,7 +435,11 @@ async def signup(data: dict):
             user = result.fetchone()
             conn.commit()
 
-            return {"id": str(user.id), "first_name": user.first_name, "language_code": "en"}
+            return {
+                "id": str(user.id),
+                "first_name": user.first_name,
+                "language_code": "en",
+            }
     except Exception as e:
         return {"error": str(e)}
 
@@ -398,7 +461,11 @@ async def login(data: dict):
             if not user:
                 return {"error": "User not found"}, 404
 
-            return {"id": str(user.id), "first_name": user.first_name, "language_code": user.language_code}
+            return {
+                "id": str(user.id),
+                "first_name": user.first_name,
+                "language_code": user.language_code,
+            }
     except Exception as e:
         return {"error": str(e)}
 
@@ -458,7 +525,9 @@ async def update_user_language(user_id: str, language_code: str = Form(...)):
                 WHERE id = :user_id
                 """
             )
-            result = conn.execute(query, {"language_code": language_code, "user_id": user_id})
+            result = conn.execute(
+                query, {"language_code": language_code, "user_id": user_id}
+            )
             conn.commit()
 
             # print(f"Result: {result.rowcount}")
@@ -502,6 +571,8 @@ async def accept_call(data: dict):
     caller_id = data.get("caller_id")
     recipient_id = data.get("recipient_id")
 
+    ongoing_calls.append((caller_id, recipient_id))
+
     if not caller_id or not recipient_id:
         raise HTTPException(status_code=400, detail="Missing caller_id or recipient_id")
 
@@ -515,6 +586,7 @@ async def accept_call(data: dict):
         await connected_clients[recipient_id].send_json(
             {"type": "call_accepted", "caller_id": caller_id}
         )
+
 
 if __name__ == "__main__":
     import uvicorn

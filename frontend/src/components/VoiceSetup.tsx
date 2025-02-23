@@ -8,13 +8,22 @@ import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import { UserAuthModal } from "./UserAuthModal";
 
 const VoiceSetup: React.FC = () => {
   const { user, loading, login } = useAuth();
-  const [selectedLanguage, setSelectedLanguage] = useState<string>(user?.language_code || "");
+  const [selectedLanguage, setSelectedLanguage] = useState<string>(
+    user?.language_code || ""
+  );
   const [isLanguageUpdating, setIsLanguageUpdating] = useState(false);
-  
+
   const languages = [
     { code: "en", name: "English" },
     { code: "es", name: "Spanish" },
@@ -98,10 +107,13 @@ const VoiceSetup: React.FC = () => {
     formData.append("user_id", user.id);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_SERVER_URL}/create-voice`, {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_SERVER_URL}/create-voice`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       if (!response.ok) {
         throw new Error("API request failed");
@@ -140,42 +152,49 @@ const VoiceSetup: React.FC = () => {
     setIsSuccess(false);
   };
 
-  const handleAuthSuccess = (userData: { id: string; first_name: string; language_code: string }) => {
+  const handleAuthSuccess = (userData: {
+    id: string;
+    first_name: string;
+    language_code: string;
+  }) => {
     login(userData);
     setShowAuthModal(false);
   };
 
-// Add language update handler
-const handleLanguageUpdate = async (language: string) => {
-  if (!user) {
-    setError("Please log in first.");
-    return;
-  }
-
-  setIsLanguageUpdating(true);
-  setError(null);
-
-  try {
-    const formData = new FormData();
-    formData.append("language_code", language);
-
-    const response = await fetch(`http://localhost:8000/users/${user.id}/language`, {
-      method: "PUT",
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to update language");
+  // Add language update handler
+  const handleLanguageUpdate = async (language: string) => {
+    if (!user) {
+      setError("Please log in first.");
+      return;
     }
 
-    setSelectedLanguage(language);
-  } catch (err) {
-    console.error("Error updating language:", err);
-    setError("Failed to update language preference.");
-  } finally {
-    setIsLanguageUpdating(false);
-  }
-};
+    setIsLanguageUpdating(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("language_code", language);
+
+      const response = await fetch(
+        `http://localhost:8000/users/${user.id}/language`,
+        {
+          method: "PUT",
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to update language");
+      }
+
+      setSelectedLanguage(language);
+    } catch (err) {
+      console.error("Error updating language:", err);
+      setError("Failed to update language preference.");
+    } finally {
+      setIsLanguageUpdating(false);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -195,25 +214,30 @@ const handleLanguageUpdate = async (language: string) => {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            
+
             {/* Add Language Selection Card */}
-            <Card className="w-full animate-float-in shadow-lg rounded-lg">
-              <CardContent className="pt-6 px-4">
+            <Card className=" animate-float-in shadow-lg rounded-lg">
+              <CardContent className="px-4">
                 <div className="flex flex-col space-y-4">
-                  <label className="text-sm font-medium text-white">Select Language</label>
-                  <select
+                  <label className="text-sm font-medium text-white">
+                    Select language
+                  </label>
+                  <Select
                     value={selectedLanguage}
-                    onChange={(e) => handleLanguageUpdate(e.target.value)}
-                    className="w-full p-3 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onValueChange={(value) => handleLanguageUpdate(value)}
                     disabled={isLanguageUpdating}
                   >
-                    <option value="" className="text-gray-400">Choose a language</option>
-                    {languages.map((lang) => (
-                      <option key={lang.code} value={lang.code} className="text-white">
-                        {lang.name}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {languages.map((lang) => (
+                        <SelectItem key={lang.code} value={lang.code}>
+                          {lang.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {isLanguageUpdating && (
                     <div className="flex items-center justify-center">
                       <Loader2 className="h-4 w-4 animate-spin text-white" />
@@ -223,8 +247,8 @@ const handleLanguageUpdate = async (language: string) => {
               </CardContent>
             </Card>
             {existingVoice ? (
-              <Card className="w-full animate-float-in">
-                <div className="flex-col justify-between mb-4">
+              <Card className=" animate-float-in">
+                <div className="flex-col mb-4">
                   <div className="flex items-center text-">
                     <div className="h-2 w-2 rounded-full bg-green-500 mr-2"></div>
                     <span>Voice ready</span>

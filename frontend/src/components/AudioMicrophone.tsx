@@ -11,13 +11,12 @@ const RECORDING_SAMPLE_RATE = 16_000;
 const AudioMicrophone: React.FC = () => {
   const { user } = useAuth();
   const { callState } = useAuth();
-  const [isRecording, setIsRecording] = useState(false)
+  const [isRecording, setIsRecording] = useState(false);
   const { startRecording, stopRecording } = usePCMAudioRecorder();
   const websocketRef = useRef<WebSocket | null>(null);
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [spacebarPressed, setSpacebarPressed] = useState(false);
   const [terminalChunkSent, setTerminalChunkSent] = useState(true);
-
 
   usePCMAudioListener((audio: Float32Array) => {
     if (spacebarPressed) {
@@ -42,7 +41,6 @@ const AudioMicrophone: React.FC = () => {
       }
     }
   });
-
 
   // Detecting spacebar presses
   useEffect(() => {
@@ -79,14 +77,14 @@ const AudioMicrophone: React.FC = () => {
     const connectWebSocket = () => {
       try {
         websocketRef.current = new WebSocket(
-          `${import.meta.env.VITE_WS_SERVER_URL}/ws?user_id=${user?.id}&language_code=${user?.language_code}`
+          `${import.meta.env.VITE_WS_SERVER_URL}/ws?user_id=${user?.id}`
         );
       } catch (error) {
         console.error("WebSocket connection error:", error);
       }
-    }
+    };
 
-    connectWebSocket()
+    connectWebSocket();
 
     return () => {
       if (websocketRef.current) {
@@ -107,12 +105,9 @@ const AudioMicrophone: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callState.status, websocketRef.current?.readyState]);
-    
-  const handleStartRecording = useCallback(async ({
-      deviceId,
-    }: {
-      deviceId: string;
-    }) => {
+
+  const handleStartRecording = useCallback(
+    async ({ deviceId }: { deviceId: string }) => {
       if (websocketRef.current?.readyState !== WebSocket.OPEN) {
         console.error("WebSocket is not connected");
         alert("WebSocket is not connected. Please wait for connection.");
