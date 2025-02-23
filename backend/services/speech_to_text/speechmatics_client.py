@@ -58,7 +58,7 @@ class SpeechmaticsClient:
         try:
             await asyncio.get_event_loop().run_in_executor(
                 None,
-                self.ws_client.run_asynchronously,
+                self.ws_client.run_synchronously,
                 audio_processor,
                 config,
                 settings,
