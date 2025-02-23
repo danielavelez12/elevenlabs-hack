@@ -30,8 +30,8 @@ async def audio_broadcast_handler(websocket, path=None):
 
 
 async def start_websocket_server():
-    server = await websockets.serve(audio_broadcast_handler, "localhost", 8765)
-    print("WebSocket server started on ws://localhost:8765")
+    server = await websockets.serve(audio_broadcast_handler, "0.0.0.0", 8765)
+    print("WebSocket server started on ws://0.0.0.0:8765")
     return server
 
 
