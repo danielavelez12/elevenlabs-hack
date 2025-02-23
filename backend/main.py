@@ -37,11 +37,33 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",  # Development frontend
+        "https://elevenlabs-hack-seven.vercel.app",  # Vercel deployment
+        "*",  # Fallback - consider removing in production
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+
+# Add websocket-specific CORS handling
+@app.middleware("http")
+async def add_websocket_cors_headers(request, call_next):
+    response = await call_next(request)
+    if request.headers.get("upgrade", "").lower() == "websocket":
+        response.headers.update(
+            {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+    return response
+
 
 load_dotenv()
 
@@ -99,7 +121,7 @@ async def websocket_endpoint(websocket: WebSocket):
         print(f"Received transcript: {text}")
         buffer.append(text)
         print(f"Buffer: {buffer}")
-    
+
     client = SpeechmaticsClient(
         api_key=os.getenv("SPEECHMATICS_API_KEY"),
         language="en",
@@ -125,7 +147,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if terminal:
                     print(f"Terminal chunk received: {buffer}")
-                    await translate_text_stream(' '.join(buffer), "English", "Spanish", broadcast=True)
+                    await translate_text_stream(
+                        " ".join(buffer), "English", "Spanish", broadcast=True
+                    )
                     buffer = []
                 else:
                     audio_processor.write_audio(data)
@@ -411,18 +435,18 @@ async def accept_call(data: dict):
 
     # Notify both parties that the call was accepted
     if caller_id in connected_clients:
-        await connected_clients[caller_id].send_json({
-            "type": "call_accepted",
-            "recipient_id": recipient_id
-        })
+        await connected_clients[caller_id].send_json(
+            {"type": "call_accepted", "recipient_id": recipient_id}
+        )
 
     if recipient_id in connected_clients:
-        await connected_clients[recipient_id].send_json({
-            "type": "call_accepted",
-            "caller_id": caller_id
-        })
+        await connected_clients[recipient_id].send_json(
+            {"type": "call_accepted", "caller_id": caller_id}
+        )
 
-    await translate_text_stream("Hello, how are you?", "English", "Spanish", broadcast=True)
+    await translate_text_stream(
+        "Hello, how are you?", "English", "Spanish", broadcast=True
+    )
 
 
 if __name__ == "__main__":
