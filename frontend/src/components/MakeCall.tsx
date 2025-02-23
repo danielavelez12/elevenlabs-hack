@@ -146,8 +146,27 @@ const MakeCall: React.FC = () => {
     }
   };
 
-  const handleRejectCall = () => {
+  const handleRejectCall = async () => {
     setCallState({ status: "idle" });
+
+    if (callState.status === "ongoing") {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_SERVER_URL}/end-call`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            caller_id: callState.callerId,
+            recipient_id: user?.id,
+          }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Failed to end call");
+      }
+    }
   };
 
   const renderCallInterface = () => {

@@ -95,6 +95,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 : callerData.first_name,
             }));
           }
+        } else if (data.type === "call_ended") {
+          setCallState({ status: "idle" });
         }
       };
 
