@@ -1,4 +1,4 @@
-import React, { ReactNode, useContext, useEffect, useState } from "react";
+import React, { useEffect } from "react";
 
 type User = {
   id: string;
@@ -24,23 +24,25 @@ type AuthContextType = {
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<User>(() => {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [loading, setLoading] = React.useState(true);
+  const [user, setUser] = React.useState<User>(() => {
     // Initialize state from localStorage on component mount
     const savedUser = localStorage.getItem("user");
     return savedUser ? JSON.parse(savedUser) : null;
   });
-  const [callState, setCallState] = useState<CallState>({ status: "idle" });
-  const [audioData, setAudioData] = useState<string>();
+  const [callState, setCallState] = React.useState<CallState>({
+    status: "idle",
+  });
+  const [audioData, setAudioData] = React.useState<string>();
 
-  useEffect(() => {
+  React.useEffect(() => {
     // Simulate checking auth state
     setLoading(false);
   }, []);
 
   // Update the WebSocket connection effect
-  useEffect(() => {
+  React.useEffect(() => {
     let ws: WebSocket | null = null;
 
     if (user?.id) {
@@ -146,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
+  const context = React.useContext(AuthContext);
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
