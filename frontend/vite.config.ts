@@ -9,6 +9,10 @@ export default defineConfig({
   optimizeDeps: {
     include: ["cookie"],
   },
+  esbuild: {
+    jsxFactory: "React.createElement",
+    jsxFragment: "React.Fragment",
+  },
   build: {
     target: "es2017",
     rollupOptions: {
