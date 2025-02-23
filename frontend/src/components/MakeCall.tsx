@@ -1,7 +1,17 @@
+import { Loader2 } from "lucide-react";
 import type React from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { UserAuthModal } from "./UserAuthModal";
 
 const MakeCall: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -9,6 +19,32 @@ const MakeCall: React.FC = () => {
   const mediaSourceRef = useRef<MediaSource | null>(null);
   const sourceBufferRef = useRef<SourceBuffer | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const [users, setUsers] = useState<Array<{ id: string; first_name: string }>>(
+    []
+  );
+  const [selectedUser, setSelectedUser] = useState<string>("");
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const { user, loading, login } = useAuth();
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/users");
+      if (!response.ok) throw new Error("Failed to fetch users");
+      const data = await response.json();
+      setUsers(data);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
+
+  const handleAuthSuccess = (userData: { id: string; first_name: string }) => {
+    login(userData);
+    fetchUsers();
+  };
 
   const startAudioStream = () => {
     if (!audioRef.current) return;
@@ -93,16 +129,44 @@ const MakeCall: React.FC = () => {
 
   return (
     <div className="flex flex-col space-y-6 items-center justify-center h-full max-w-md mx-auto p-6">
-      <Card className="animate-float-in">
-        <audio ref={audioRef} className="mb-4" />
-        <Button
-          className="px-4 py-2 rounded bg-green-500 text-white hover:bg-green-600 h-10 w-60"
-          onClick={handleStartCall}
-          disabled={started}
-        >
-          {started ? "Call in progress..." : "Start call"}
-        </Button>
-      </Card>
+      {loading ? (
+        <Loader2 className="h-8 w-8 animate-spin" />
+      ) : user ? (
+        <Card className="animate-float-in p-4">
+          <div className="mb-4">Welcome, {user.first_name}!</div>
+          <Select value={selectedUser} onValueChange={setSelectedUser}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select user to call" />
+            </SelectTrigger>
+            <SelectContent>
+              {users
+                .filter((user) => user.id !== user.id)
+                .map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.first_name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+          <audio ref={audioRef} className="mb-4" />
+          <Button
+            className="px-4 py-2 rounded bg-green-500 text-white hover:bg-green-600 h-10 w-60 mt-4"
+            onClick={handleStartCall}
+            disabled={started || !selectedUser}
+          >
+            {started ? "Call in progress..." : "Start call"}
+          </Button>
+        </Card>
+      ) : (
+        <Button onClick={() => setShowAuthModal(true)}>Sign Up / Login</Button>
+      )}
+      {!loading && !user && (
+        <UserAuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={handleAuthSuccess}
+        />
+      )}
     </div>
   );
 };
