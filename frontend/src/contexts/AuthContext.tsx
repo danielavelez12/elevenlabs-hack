@@ -35,7 +35,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User>(() => {
     // Initialize state from localStorage on component mount
     const savedUser = localStorage.getItem("user");
-    console.log({ savedUser });
     return savedUser ? JSON.parse(savedUser) : null;
   });
   const [callState, setCallState] = useState<CallState>({ status: "idle" });
@@ -58,7 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       ws.onmessage = async (event) => {
-        console.log({ event });
         const data = JSON.parse(event.data);
         if (data.type === "audio_chunk") {
           setAudioData(data.data);

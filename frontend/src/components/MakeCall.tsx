@@ -2,6 +2,7 @@ import { Clock, Loader2, PhoneCall, PhoneOff } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import AudioStream from "../AudioStream";
+import { AudioVisualizer } from "../AudioVisualizer";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -64,7 +65,6 @@ const MakeCall: React.FC = () => {
       const response = await fetch("http://localhost:8000/users");
       if (!response.ok) throw new Error("Failed to fetch users");
       const data = await response.json();
-      console.log(data);
       setUsers(data);
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -181,6 +181,7 @@ const MakeCall: React.FC = () => {
               <span>{elapsedTime}</span>
             </div>
             <AudioStream userId={user?.id} />
+            <AudioVisualizer />
             <Button
               onClick={handleRejectCall}
               className="bg-red-500 hover:bg-red-600 w-full"
@@ -220,8 +221,6 @@ const MakeCall: React.FC = () => {
         );
     }
   };
-
-  console.log({ users });
 
   return (
     <div className="flex flex-col space-y-6 items-center justify-center h-full max-w-md mx-auto p-6">

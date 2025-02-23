@@ -14,8 +14,6 @@ const AudioStream: React.FC<AudioStreamProps> = ({ userId }) => {
 
   // Add effect to start stream when call becomes ongoing
   useEffect(() => {
-    console.log({ callState });
-    console.log({ started });
     if (callState.status === "ongoing" && !started) {
       setStarted(true);
       startStream();
@@ -24,9 +22,6 @@ const AudioStream: React.FC<AudioStreamProps> = ({ userId }) => {
 
   // Add effect to handle incoming audio data
   useEffect(() => {
-    console.log({ audioData });
-    console.log({ sourceBufferRef });
-    console.log({ started });
     if (!audioData || !sourceBufferRef.current || !started) return;
 
     if (!sourceBufferRef.current.updating) {

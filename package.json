@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@speechmatics/browser-audio-input-react": "^1.1.0"
+  }
+}
