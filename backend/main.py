@@ -148,7 +148,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 if terminal:
                     print(f"Terminal chunk received: {buffer}")
                     await translate_text_stream(
-                        " ".join(buffer), "English", "Spanish", broadcast=True
+                        " ".join(buffer),
+                        "English",
+                        "Spanish",
+                        broadcast=True,
+                        voice_id="xeg56Dz2Il4WegdaPo82",
                     )
                     buffer = []
                 else:
@@ -207,6 +211,19 @@ async def start_websocket_endpoint(websocket: WebSocket):
                         # Notify caller that call was accepted
                         await connected_clients[caller_id].send_json(
                             {"type": "call_accepted", "recipient_id": user_id}
+                        )
+                elif data.get("type") == "call_ended":
+                    caller_id = data.get("caller_id")
+                    if caller_id in connected_clients:
+                        # Notify caller that call was accepted
+                        await connected_clients[caller_id].send_json(
+                            {"type": "call_ended"}
+                        )
+                    recipient_id = data.get("recipient_id")
+                    if recipient_id in connected_clients:
+                        # Notify recipient that call was ended
+                        await connected_clients[recipient_id].send_json(
+                            {"type": "call_ended"}
                         )
 
             except websockets.exceptions.ConnectionClosed:
@@ -282,6 +299,33 @@ async def create_voice(
                     "message": "Voice created and stored successfully",
                 }
 
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/end-call")
+async def end_call(data: dict):
+    try:
+        caller_id = data.get("caller_id")
+        recipient_id = data.get("recipient_id")
+
+        if not caller_id or not recipient_id:
+            raise HTTPException(status_code=400, detail="Missing user IDs")
+
+        end_signal = {
+            "type": "call_ended",
+            "caller_id": caller_id,
+            "recipient_id": recipient_id,
+        }
+
+        print("end signal: ", end_signal)
+
+        if caller_id in connected_clients:
+            await connected_clients[caller_id].send_json(end_signal)
+        if recipient_id in connected_clients:
+            await connected_clients[recipient_id].send_json(end_signal)
+
+        return {"message": "Call ended successfully"}
     except Exception as e:
         return {"error": str(e)}
 

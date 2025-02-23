@@ -31,7 +31,9 @@ def translation_prompt(original_text: str, source_language: str, target_language
     return f"Translate the following text from {source_language} to {target_language}: {original_text}"
 
 
-def translate_text(original_text: str, source_language: str, target_language: str) -> str:
+def translate_text(
+    original_text: str, source_language: str, target_language: str
+) -> str:
     prompt = translation_prompt(original_text, source_language, target_language)
     try:
         completion = client.chat.completions.create(
@@ -134,7 +136,11 @@ async def text_to_speech_input_streaming(voice_id, text_iterator, broadcast=Fals
 
 
 async def translate_text_stream(
-    original_text: str, source_language: str = "English", target_language: str = "Spanish", broadcast=False
+    original_text: str,
+    source_language: str = "English",
+    target_language: str = "Spanish",
+    broadcast=False,
+    voice_id="xeg56Dz2Il4WegdaPo82",
 ):
     """Streaming version of translate_text that works with ElevenLabs"""
     prompt = translation_prompt(original_text, source_language, target_language)
@@ -155,9 +161,7 @@ async def translate_text_stream(
                 if chunk.choices[0].delta.content:
                     yield chunk.choices[0].delta.content
 
-        await text_to_speech_input_streaming(
-            "xeg56Dz2Il4WegdaPo82", text_iterator(), broadcast
-        )
+        await text_to_speech_input_streaming(voice_id, text_iterator(), broadcast)
     except Exception as e:
         raise Exception(f"Translation failed: {str(e)}")
 
@@ -167,6 +171,8 @@ if __name__ == "__main__":
     VOICE_ID = "YfQgJYCithpNui6mhEWk"
 
     async def main():
-        await translate_text_stream("Hello, how are you?", "English", "Spanish", broadcast=True)
+        await translate_text_stream(
+            "Hello, how are you?", "English", "Spanish", broadcast=True
+        )
 
     asyncio.run(main())
