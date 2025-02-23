@@ -166,9 +166,6 @@ if __name__ == "__main__":
     VOICE_ID = "YfQgJYCithpNui6mhEWk"
 
     async def main():
-        server = await start_websocket_server()
-        await asyncio.sleep(3)
         await translate_text_stream("Hello, how are you?", "Spanish", broadcast=True)
-        await server.wait_closed()
 
     asyncio.run(main())

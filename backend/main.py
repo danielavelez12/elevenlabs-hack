@@ -1,5 +1,5 @@
 from text_translate import translate_text, translate_text_stream, start_websocket_server
-from fastapi import FastAPI, WebSocket, UploadFile, File, Form
+from fastapi import FastAPI, WebSocket, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from services.speech_to_text.speechmatics_client import SpeechmaticsClient
 from sqlalchemy import create_engine, text
@@ -11,6 +11,9 @@ import aiohttp
 import asyncio
 import os
 import io
+import json
+import websockets
+from shared_state import connected_clients
 
 load_dotenv()
 
@@ -50,16 +53,17 @@ engine = create_engine(DB_URL)
 # Global variable for websocket server
 websocket_server = None
 
+
 class AudioProcessor:
     def __init__(self):
         self.wave_data = bytearray()
         self.read_offset = 0
-        
+
     async def read(self, chunk_size):
         while self.read_offset + chunk_size > len(self.wave_data):
             await asyncio.sleep(0.001)
         new_offset = self.read_offset + chunk_size
-        data = self.wave_data[self.read_offset:new_offset]
+        data = self.wave_data[self.read_offset : new_offset]
         self.read_offset = new_offset
         return data
 
@@ -70,25 +74,27 @@ class AudioProcessor:
         except Exception as e:
             print(f"Error handling audio data: {str(e)}")
             import traceback
+
             print(traceback.format_exc())
         return
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    
+
     audio_processor = AudioProcessor()
 
     def handle_transcript(text):
         print(f"Received transcript: {text}")
-    
+
     client = SpeechmaticsClient(
         api_key=os.getenv("SPEECHMATICS_API_KEY"),
         language="en",
         sample_rate=16000,
-        on_transcript=handle_transcript
+        on_transcript=handle_transcript,
     )
-    
+
     try:
         print("Starting transcription process")
 
@@ -99,22 +105,74 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             try:
                 data = await websocket.receive_bytes()
-                
+
                 audio_processor.write_audio(data)
             except Exception as ws_error:
                 print(f"WebSocket error: {ws_error}")
                 break
-            
+
     except Exception as e:
         print(f"Error in main loop: {e}")
     finally:
-        if 'transcription_task' in locals():
+        if "transcription_task" in locals():
             transcription_task.cancel()
             try:
                 await transcription_task
             except asyncio.CancelledError:
                 print("Transcription task cancelled")
         print("WebSocket connection closed")
+
+
+@app.websocket("/ws/start")
+async def start_websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+
+    # Extract user_id from query parameters
+    query_params = dict(websocket.query_params)
+    user_id = query_params.get("user_id")
+
+    if not user_id:
+        await websocket.close(code=4000, reason="Missing user ID")
+        return
+
+    try:
+        # Add this client to connected clients
+        connected_clients[user_id] = websocket
+        print(f"User {user_id} connected to call websocket")
+        print("connected clients: ", connected_clients)
+
+        # Keep connection alive and handle incoming messages
+        while True:
+            try:
+                message = await websocket.receive_text()
+                data = json.loads(message)
+
+                if data.get("type") == "call_request":
+                    recipient_id = data.get("recipient_id")
+                    if recipient_id in connected_clients:
+                        # Forward call request to recipient
+                        await connected_clients[recipient_id].send_json(
+                            {"type": "incoming_call", "caller_id": user_id}
+                        )
+
+                elif data.get("type") == "call_accepted":
+                    caller_id = data.get("caller_id")
+                    if caller_id in connected_clients:
+                        # Notify caller that call was accepted
+                        await connected_clients[caller_id].send_json(
+                            {"type": "call_accepted", "recipient_id": user_id}
+                        )
+
+            except websockets.exceptions.ConnectionClosed:
+                break
+
+    except Exception as e:
+        print(f"Error in call websocket: {e}")
+    finally:
+        if user_id in connected_clients:
+            del connected_clients[user_id]
+        print(f"User {user_id} disconnected from call websocket")
+
 
 @app.get("/")
 async def root():
@@ -183,15 +241,34 @@ async def create_voice(
 
 
 @app.post("/start-call")
-async def start_call():
+async def start_call(data: dict):
     try:
-        if not websocket_server:
-            raise Exception("WebSocket server not initialized")
+        caller_id = data.get("caller_id")
+        recipient_id = data.get("recipient_id")
 
-        test_text = "Hello, how are you?"
-        await translate_text_stream(test_text, "Spanish", broadcast=True)
-        return {"message": "Call started successfully"}
+        if not caller_id or not recipient_id:
+            raise HTTPException(status_code=400, detail="Missing user IDs")
+
+        # Send call signal to recipient's websocket
+        call_signal = {
+            "type": "incoming_call",
+            "caller_id": caller_id,
+            "recipient_id": recipient_id,
+        }
+
+        print("call signal: ", call_signal)
+        print("connected clients: ", connected_clients)
+
+        # Send only to the intended recipient
+        if recipient_id in connected_clients:
+            recipient_ws = connected_clients[recipient_id]
+            await recipient_ws.send_json(call_signal)
+            return {"message": "Call signal sent successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="Recipient not connected")
+
     except Exception as e:
+        print(f"Error sending call signal: {e}")
         return {"error": str(e)}
 
 
@@ -280,6 +357,53 @@ async def get_user_voices(user_id: str):
         return {"error": str(e)}
 
 
+@app.get("/users/{user_id}")
+async def get_user(user_id: str):
+    try:
+        with engine.connect() as conn:
+            query = text(
+                """
+                SELECT id, first_name FROM users
+                WHERE id = :user_id
+                """
+            )
+            result = conn.execute(query, {"user_id": user_id})
+            user = result.fetchone()
+
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            return {"id": str(user.id), "first_name": user.first_name}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/accept-call")
+async def accept_call(data: dict):
+    print("Accepting call")
+    caller_id = data.get("caller_id")
+    recipient_id = data.get("recipient_id")
+
+    if not caller_id or not recipient_id:
+        raise HTTPException(status_code=400, detail="Missing caller_id or recipient_id")
+
+    # Notify both parties that the call was accepted
+    if caller_id in connected_clients:
+        await connected_clients[caller_id].send_json({
+            "type": "call_accepted",
+            "recipient_id": recipient_id
+        })
+
+    if recipient_id in connected_clients:
+        await connected_clients[recipient_id].send_json({
+            "type": "call_accepted",
+            "caller_id": caller_id
+        })
+
+    await translate_text_stream("Hello, how are you?", "Spanish", broadcast=True)
+
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
