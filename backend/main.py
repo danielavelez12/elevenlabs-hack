@@ -125,6 +125,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if terminal:
                     print(f"Terminal chunk received: {buffer}")
+                    await translate_text_stream(' '.join(buffer), "English", "Spanish", broadcast=True)
                     buffer = []
                 else:
                     audio_processor.write_audio(data)
@@ -421,7 +422,7 @@ async def accept_call(data: dict):
             "caller_id": caller_id
         })
 
-    await translate_text_stream("Hello, how are you?", "Spanish", broadcast=True)
+    await translate_text_stream("Hello, how are you?", "English", "Spanish", broadcast=True)
 
 
 if __name__ == "__main__":

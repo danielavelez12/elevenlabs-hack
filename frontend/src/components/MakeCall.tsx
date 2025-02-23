@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { UserAuthModal } from "./UserAuthModal";
+import AudioMicrophone from "./AudioMicrophone";
 
 type Timeout = ReturnType<typeof setInterval>;
 
@@ -182,6 +183,7 @@ const MakeCall: React.FC = () => {
             </div>
             <AudioStream userId={user?.id} />
             <AudioVisualizer />
+            <AudioMicrophone />
             <Button
               onClick={handleRejectCall}
               className="bg-red-500 hover:bg-red-600 w-full"

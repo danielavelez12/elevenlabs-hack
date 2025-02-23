@@ -6,7 +6,7 @@ import {
 
 const RECORDING_SAMPLE_RATE = 16_000;
 
-const AudioStreamer: React.FC = () => {
+const AudioMicrophone: React.FC = () => {
     const [isRecording, setIsRecording] = useState(false)
     const [transcript, setTranscript] = useState('')
     const [connectionStatus, setConnectionStatus] = useState('Disconnected')
@@ -181,4 +181,4 @@ const AudioStreamer: React.FC = () => {
     )
 }
 
-export default AudioStreamer;
+export default AudioMicrophone;
