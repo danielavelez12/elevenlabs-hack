@@ -28,6 +28,7 @@ export function UserMenu() {
             onClick={() => {
               logout();
               setShowMenu(false);
+              window.location.reload();
             }}
           >
             <LogOut size={16} />

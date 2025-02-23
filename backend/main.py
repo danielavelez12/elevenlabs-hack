@@ -212,6 +212,7 @@ async def get_user_voices(user_id: str):
                 LIMIT 1
             """
             )
+            print(user_id)
             result = conn.execute(query, {"user_id": user_id})
             voice = result.fetchone()
 

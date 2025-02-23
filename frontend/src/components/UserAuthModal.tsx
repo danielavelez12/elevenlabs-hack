@@ -37,7 +37,7 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen}>
       <DialogContent className="py-10">
         <DialogHeader>
           <DialogTitle>
