@@ -80,12 +80,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } else if (data.type === "call_accepted") {
           // Handle call accepted
-          console.log("Call accepted by:", data.recipient_id);
-          setCallState((prevState) => ({
-            ...prevState,
-            status: "ongoing",
-            startTime: new Date(),
-          }));
+          const response = await fetch(
+            `http://localhost:8000/users/${data.recipient_id}`
+          );
+          if (response.ok) {
+            const callerData = await response.json();
+            setCallState((prevState) => ({
+              ...prevState,
+              status: "ongoing",
+              startTime: new Date(),
+              callerId: prevState.callerId
+                ? prevState.callerId
+                : data.recipient_id,
+              callerName: prevState.callerName
+                ? prevState.callerName
+                : callerData.first_name,
+            }));
+          }
         }
       };
 
