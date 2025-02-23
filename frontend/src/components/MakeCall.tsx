@@ -1,6 +1,7 @@
-import { Loader2 } from "lucide-react";
+import { Clock, Loader2, PhoneCall, PhoneOff } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
+import AudioStream from "../AudioStream";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -13,23 +14,49 @@ import {
 } from "./ui/select";
 import { UserAuthModal } from "./UserAuthModal";
 
+type Timeout = ReturnType<typeof setInterval>;
+
 const MakeCall: React.FC = () => {
-  const audioRef = useRef<HTMLAudioElement>(null);
   const [started, setStarted] = useState(false);
-  const mediaSourceRef = useRef<MediaSource | null>(null);
-  const sourceBufferRef = useRef<SourceBuffer | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
   const [users, setUsers] = useState<Array<{ id: string; first_name: string }>>(
     []
   );
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [showAuthModal, setShowAuthModal] = useState(true);
-  const { user, loading: authLoading, login } = useAuth();
+  const {
+    user,
+    loading: authLoading,
+    login,
+    callState,
+    setCallState,
+  } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState<string>("00:00");
+  const timerRef = useRef<Timeout | null>(null);
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    if (callState.status === "ongoing" && callState.startTime) {
+      timerRef.current = setInterval(() => {
+        const elapsed = new Date().getTime() - callState.startTime!.getTime();
+        const minutes = Math.floor(elapsed / 60000);
+        const seconds = Math.floor((elapsed % 60000) / 1000);
+        setElapsedTime(
+          `${minutes.toString().padStart(2, "0")}:${seconds
+            .toString()
+            .padStart(2, "0")}`
+        );
+      }, 1000);
+    }
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [callState.status, callState.startTime]);
 
   const fetchUsers = async () => {
     try {
@@ -51,73 +78,23 @@ const MakeCall: React.FC = () => {
     fetchUsers();
   };
 
-  const startAudioStream = () => {
-    if (!audioRef.current) return;
-
-    // Create and attach MediaSource
-    const mediaSource = new MediaSource();
-    mediaSourceRef.current = mediaSource;
-    audioRef.current.src = URL.createObjectURL(mediaSource);
-
-    mediaSource.addEventListener("sourceopen", () => {
-      try {
-        const sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
-        sourceBufferRef.current = sourceBuffer;
-
-        // Set up WebSocket connection
-        wsRef.current = new WebSocket("ws://localhost:8765");
-        wsRef.current.binaryType = "arraybuffer";
-
-        wsRef.current.onmessage = (event: MessageEvent) => {
-          console.log("Received message:", event.data);
-          if (typeof event.data === "string") {
-            try {
-              const data = JSON.parse(event.data);
-              if (data.end_of_stream) {
-                // Wait for any pending updates before ending the stream
-                const waitForUpdates = () => {
-                  if (sourceBufferRef.current?.updating) {
-                    setTimeout(waitForUpdates, 50);
-                  } else {
-                    mediaSource.endOfStream();
-                  }
-                };
-                waitForUpdates();
-              }
-            } catch (err) {
-              console.error("Error parsing JSON:", err);
-            }
-          } else {
-            const uint8Array = new Uint8Array(event.data as ArrayBuffer);
-            if (sourceBufferRef.current && !sourceBufferRef.current.updating) {
-              try {
-                sourceBufferRef.current.appendBuffer(uint8Array);
-              } catch (err) {
-                console.error("Error appending buffer:", err);
-              }
-            }
-          }
-        };
-      } catch (error) {
-        console.error("Error setting up audio stream:", error);
-      }
-    });
-
-    audioRef.current.play().catch((err) => {
-      console.error("Playback error:", err);
-    });
-  };
-
   const handleStartCall = async () => {
     try {
+      if (!user || !selectedUser) {
+        throw new Error("Missing user information");
+      }
+
       setStarted(true);
-      startAudioStream(); // Start audio stream first
 
       const response = await fetch("http://localhost:8000/start-call", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          caller_id: user.id,
+          recipient_id: selectedUser,
+        }),
       });
 
       if (!response.ok) {
@@ -132,14 +109,90 @@ const MakeCall: React.FC = () => {
     }
   };
 
-  console.log({ users });
+  const handleAcceptCall = async () => {
+    try {
+      if (!user || !callState.callerId) {
+        throw new Error("Missing user information");
+      }
 
-  return (
-    <div className="flex flex-col space-y-6 items-center justify-center h-full max-w-md mx-auto p-6">
-      {authLoading || loading ? (
-        <Loader2 className="h-8 w-8 animate-spin" />
-      ) : (
-        user && (
+      const response = await fetch("http://localhost:8000/accept-call", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          caller_id: callState.callerId,
+          recipient_id: user.id,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to accept call");
+      }
+
+      // The call state will be updated via websocket when we receive the call_accepted event
+    } catch (error) {
+      console.error("Error accepting call:", error);
+      setCallState({ status: "idle" });
+    }
+  };
+
+  const handleRejectCall = () => {
+    setCallState({ status: "idle" });
+  };
+
+  const renderCallInterface = () => {
+    switch (callState.status) {
+      case "incoming":
+        return (
+          <Card className="animate-float-in p-6 space-y-4">
+            <div className="flex items-center justify-center space-x-2">
+              <PhoneCall className="h-6 w-6 text-blue-500 animate-pulse" />
+              <span className="text-lg">
+                {callState.callerName} is calling...
+              </span>
+            </div>
+            <div className="flex justify-center space-x-4">
+              <Button
+                onClick={handleAcceptCall}
+                className="bg-green-500 hover:bg-green-600 w-60"
+              >
+                Accept
+              </Button>
+              <Button
+                onClick={handleRejectCall}
+                className="bg-red-500 hover:bg-red-600 w-60"
+              >
+                Decline
+              </Button>
+            </div>
+          </Card>
+        );
+
+      case "ongoing":
+        return (
+          <Card className="animate-float-in p-6 space-y-4">
+            <div className="flex items-center justify-center space-x-2">
+              <div className="h-2 w-2 rounded-full bg-green-500" />
+              <span>Ongoing call with {callState.callerName}</span>
+            </div>
+            <div className="flex items-center justify-center text-gray-400">
+              <Clock className="h-4 w-4 mr-2" />
+              <span>{elapsedTime}</span>
+            </div>
+            <AudioStream userId={user?.id} />
+            <Button
+              onClick={handleRejectCall}
+              className="bg-red-500 hover:bg-red-600 w-full"
+            >
+              <PhoneOff className="h-4 w-4 mr-2" />
+              End Call
+            </Button>
+          </Card>
+        );
+
+      default:
+        return (
           <Card className="animate-float-in">
             <Select value={selectedUser} onValueChange={setSelectedUser}>
               <SelectTrigger>
@@ -155,7 +208,7 @@ const MakeCall: React.FC = () => {
                   ))}
               </SelectContent>
             </Select>
-            <audio ref={audioRef} className="mb-4" />
+            <AudioStream userId={user?.id} />
             <Button
               className="px-4 py-2 rounded bg-green-500 text-white hover:bg-green-600 h-10 w-60 mt-4"
               onClick={handleStartCall}
@@ -164,7 +217,18 @@ const MakeCall: React.FC = () => {
               {started ? "Call in progress..." : "Start call"}
             </Button>
           </Card>
-        )
+        );
+    }
+  };
+
+  console.log({ users });
+
+  return (
+    <div className="flex flex-col space-y-6 items-center justify-center h-full max-w-md mx-auto p-6">
+      {authLoading || loading ? (
+        <Loader2 className="h-8 w-8 animate-spin" />
+      ) : (
+        user && renderCallInterface()
       )}
       {!authLoading && !user && (
         <UserAuthModal

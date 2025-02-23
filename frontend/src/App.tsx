@@ -23,48 +23,6 @@ const App: React.FC = () => {
     websocketRef.current?.send(audio.buffer)
   })
   
-  // Receiving websocket connection
-  useEffect(() => {
-    const connectWebSocket = () => {
-      try {
-        websocketRef.current = new WebSocket('ws://localhost:8000/ws')
-        
-        websocketRef.current.onopen = () => {
-          console.log('WebSocket connected')
-          setConnectionStatus('Connected')
-        }
-
-        websocketRef.current.onmessage = (event) => {
-          console.log('Received message:', event.data)
-          setTranscript(prev => prev + ' ' + event.data)
-        }
-
-        websocketRef.current.onerror = (error) => {
-          console.error('WebSocket error:', error)
-          setConnectionStatus('Error')
-        }
-
-        websocketRef.current.onclose = () => {
-          console.log('WebSocket closed')
-          setConnectionStatus('Disconnected')
-          // Attempt to reconnect after 2 seconds
-          setTimeout(connectWebSocket, 2000)
-        }
-      } catch (error) {
-        console.error('WebSocket connection error:', error)
-        setConnectionStatus('Error')
-      }
-    }
-
-    connectWebSocket()
-
-    return () => {
-      if (websocketRef.current) {
-        websocketRef.current.close()
-      }
-    }
-  }, [])
-  
   const handleStartRecording = useCallback(async ({
     deviceId,
   }: {
