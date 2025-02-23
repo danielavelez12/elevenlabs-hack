@@ -166,7 +166,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
     try:
         print("Starting transcription process")
-        
+
         # Start initial transcription task
         transcription_task = asyncio.create_task(
             client.transcribe_audio_stream(audio_processor)
@@ -216,7 +216,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             await transcription_task
                         except asyncio.CancelledError:
                             print("Transcription task cancelled")
-                    
+
                     await translate_text_stream(
                         " ".join(buffer),
                         source_language_code,
@@ -227,7 +227,11 @@ async def websocket_endpoint(websocket: WebSocket):
                     )
                     buffer = []
                     audio_processor.clear_buffer()
-                    
+                    print(
+                        "Creating new transcription task, audio processor: ",
+                        audio_processor,
+                    )
+
                     # Start new transcription task
                     transcription_task = asyncio.create_task(
                         client.transcribe_audio_stream(audio_processor)
