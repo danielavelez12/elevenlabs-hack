@@ -11,7 +11,6 @@ const RECORDING_SAMPLE_RATE = 16_000;
 const AudioMicrophone: React.FC = () => {
   const { user } = useAuth();
   const { callState } = useAuth();
-  const [isRecording, setIsRecording] = useState(false);
   const { startRecording, stopRecording } = usePCMAudioRecorder();
   const websocketRef = useRef<WebSocket | null>(null);
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);

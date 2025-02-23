@@ -90,6 +90,10 @@ class AudioProcessor:
         self.read_offset = new_offset
         return data
 
+    def clear_buffer(self):
+        self.wave_data = bytearray()
+        self.read_offset = 0
+
     def write_audio(self, data):
         try:
             # Data is already in float32 PCM format, just extend the buffer
@@ -145,6 +149,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
     audio_processor = AudioProcessor()
+    transcription_task = None  # Initialize as None
 
     def handle_transcript(text):
         print(f"Received transcript: {text}")
@@ -161,7 +166,8 @@ async def websocket_endpoint(websocket: WebSocket):
 
     try:
         print("Starting transcription process")
-
+        
+        # Start initial transcription task
         transcription_task = asyncio.create_task(
             client.transcribe_audio_stream(audio_processor)
         )
@@ -203,6 +209,14 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if terminal:
                     print(f"Terminal chunk received: {buffer}")
+                    # Cancel existing transcription task
+                    if transcription_task:
+                        transcription_task.cancel()
+                        try:
+                            await transcription_task
+                        except asyncio.CancelledError:
+                            print("Transcription task cancelled")
+                    
                     await translate_text_stream(
                         " ".join(buffer),
                         source_language_code,
@@ -211,6 +225,12 @@ async def websocket_endpoint(websocket: WebSocket):
                         voice_id=voice_id,
                     )
                     buffer = []
+                    audio_processor.clear_buffer()
+                    
+                    # Start new transcription task
+                    transcription_task = asyncio.create_task(
+                        client.transcribe_audio_stream(audio_processor)
+                    )
                 else:
                     audio_processor.write_audio(data)
             except Exception as ws_error:
