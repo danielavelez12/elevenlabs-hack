@@ -76,7 +76,11 @@ const MakeCall: React.FC = () => {
     }
   };
 
-  const handleAuthSuccess = (userData: { id: string; first_name: string; language_code: string }) => {
+  const handleAuthSuccess = (userData: {
+    id: string;
+    first_name: string;
+    language_code: string;
+  }) => {
     login(userData);
     fetchUsers();
   };
