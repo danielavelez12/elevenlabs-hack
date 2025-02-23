@@ -9,4 +9,12 @@ export default defineConfig({
   optimizeDeps: {
     include: ["cookie"],
   },
+  build: {
+    target: 'esnext',
+    rollupOptions: {
+      output: {
+        format: 'es'
+      }
+    }
+  }
 });
