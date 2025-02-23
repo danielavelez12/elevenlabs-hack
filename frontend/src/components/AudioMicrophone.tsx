@@ -27,10 +27,6 @@ const AudioMicrophone: React.FC = () => {
         JSON.stringify({ audio: base64Audio, terminal: false })
       );
     } else {
-      console.log(
-        "Spacebar not pressed, terminalChunkSent:",
-        terminalChunkSent
-      );
       if (!terminalChunkSent) {
         console.log("Sending terminal chunk");
         websocketRef.current?.send(

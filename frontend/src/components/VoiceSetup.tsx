@@ -29,6 +29,14 @@ const VoiceSetup: React.FC = () => {
     { code: "es", name: "Spanish" },
     { code: "hi", name: "Hindi" },
     { code: "cmn", name: "Chinese" },
+    { code: "fr", name: "French" },
+    { code: "ar", name: "Arabic" },
+    { code: "de", name: "German" },
+    { code: "it", name: "Italian" },
+    { code: "ja", name: "Japanese" },
+    { code: "ko", name: "Korean" },
+    { code: "pt", name: "Portuguese" },
+    { code: "ru", name: "Russian" },
   ];
 
   // State management
