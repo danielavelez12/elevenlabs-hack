@@ -10,11 +10,11 @@ export default defineConfig({
     include: ["cookie"],
   },
   build: {
-    target: 'esnext',
+    target: "es2017",
     rollupOptions: {
       output: {
-        format: 'es'
-      }
-    }
-  }
+        format: "es",
+      },
+    },
+  },
 });
