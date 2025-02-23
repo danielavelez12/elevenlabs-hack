@@ -20,11 +20,14 @@ export const UserAuthModal: React.FC<UserAuthModalProps> = ({
   const handleSubmit = async () => {
     try {
       const endpoint = isSignup ? "/signup" : "/login";
-      const response = await fetch(`http://localhost:8000${endpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ first_name: firstName }),
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_SERVER_URL}${endpoint}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ first_name: firstName }),
+        }
+      );
 
       if (!response.ok) throw new Error("Auth failed");
 

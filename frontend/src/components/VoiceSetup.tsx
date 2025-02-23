@@ -88,7 +88,7 @@ const VoiceSetup: React.FC = () => {
     formData.append("user_id", user.id);
 
     try {
-      const response = await fetch("http://localhost:8000/create-voice", {
+      const response = await fetch(`${import.meta.env.VITE_API_SERVER_URL}/create-voice`, {
         method: "POST",
         body: formData,
       });
@@ -114,7 +114,7 @@ const VoiceSetup: React.FC = () => {
   const fetchExistingVoice = async (userId: string) => {
     try {
       const response = await fetch(
-        `http://localhost:8000/users/${userId}/voices`
+        `${import.meta.env.VITE_API_SERVER_URL}/users/${userId}/voices`
       );
       if (!response.ok) throw new Error("Failed to fetch voice");
       const data = await response.json();

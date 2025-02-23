@@ -46,7 +46,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let ws: WebSocket | null = null;
 
     if (user?.id) {
-      ws = new WebSocket(`ws://localhost:8000/ws/start?user_id=${user.id}`);
+      ws = new WebSocket(
+        `${import.meta.env.VITE_API_SERVER_URL.replace(
+          "https",
+          "wss"
+        )}/ws/start?user_id=${user.id}`
+      );
 
       ws.onopen = () => {
         console.log("Call WebSocket connected for user:", user.id);
@@ -61,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log("Incoming call from:", data.caller_id);
           try {
             const response = await fetch(
-              `http://localhost:8000/users/${data.caller_id}`
+              `${import.meta.env.VITE_API_SERVER_URL}/users/${data.caller_id}`
             );
             if (response.ok) {
               const callerData = await response.json();
@@ -77,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else if (data.type === "call_accepted") {
           // Handle call accepted
           const response = await fetch(
-            `http://localhost:8000/users/${data.recipient_id}`
+            `${import.meta.env.VITE_API_SERVER_URL}/users/${data.recipient_id}`
           );
           if (response.ok) {
             const callerData = await response.json();

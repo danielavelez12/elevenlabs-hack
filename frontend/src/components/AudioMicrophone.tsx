@@ -74,7 +74,9 @@ const AudioMicrophone: React.FC = () => {
   useEffect(() => {
     const connectWebSocket = () => {
       try {
-        websocketRef.current = new WebSocket("ws://localhost:8000/ws");
+        websocketRef.current = new WebSocket(
+          `${import.meta.env.VITE_API_SERVER_URL.replace("https", "wss")}/ws`
+        );
       } catch (error) {
         console.error("WebSocket connection error:", error);
       }

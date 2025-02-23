@@ -63,7 +63,9 @@ const MakeCall: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:8000/users");
+      const response = await fetch(
+        `${import.meta.env.VITE_API_SERVER_URL}/users`
+      );
       if (!response.ok) throw new Error("Failed to fetch users");
       const data = await response.json();
       setUsers(data);
@@ -87,16 +89,19 @@ const MakeCall: React.FC = () => {
 
       setStarted(true);
 
-      const response = await fetch("http://localhost:8000/start-call", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          caller_id: user.id,
-          recipient_id: selectedUser,
-        }),
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_SERVER_URL}/start-call`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            caller_id: user.id,
+            recipient_id: selectedUser,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to start call");
@@ -116,16 +121,19 @@ const MakeCall: React.FC = () => {
         throw new Error("Missing user information");
       }
 
-      const response = await fetch("http://localhost:8000/accept-call", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          caller_id: callState.callerId,
-          recipient_id: user.id,
-        }),
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_SERVER_URL}/accept-call`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            caller_id: callState.callerId,
+            recipient_id: user.id,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to accept call");
