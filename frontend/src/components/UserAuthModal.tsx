@@ -6,7 +6,7 @@ import { Input } from "./ui/input";
 interface UserAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (userData: { id: string; first_name: string }) => void;
+  onSuccess: (userData: { id: string; first_name: string; language_code: string }) => void;
 }
 
 export const UserAuthModal: React.FC<UserAuthModalProps> = ({

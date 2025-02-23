@@ -3,6 +3,7 @@ import React from "react";
 type User = {
   id: string;
   first_name: string;
+  language_code: string;
 } | null;
 
 type CallState = {
@@ -15,7 +16,7 @@ type CallState = {
 type AuthContextType = {
   user: User;
   loading: boolean;
-  login: (userData: { id: string; first_name: string }) => void;
+  login: (userData: { id: string; first_name: string; language_code: string }) => void;
   logout: () => void;
   callState: CallState;
   setCallState: (state: CallState) => void;
@@ -126,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  const login = (userData: { id: string; first_name: string }) => {
+  const login = (userData: { id: string; first_name: string; language_code: string }) => {
     setUser(userData);
   };
 

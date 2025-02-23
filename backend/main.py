@@ -18,7 +18,6 @@ import json
 
 load_dotenv()
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -104,27 +103,28 @@ class AudioProcessor:
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    buffer = []
+    # Extract query parameters
+    query_params = dict(websocket.query_params)
+    user_id = query_params.get("user_id")
+    language_code = query_params.get("language_code", "en")  # default to English if not specified
 
+    print(f"User ID: {user_id}")
+    print(f"Language code: {language_code}")
+
+    buffer = []
     await websocket.accept()
 
     audio_processor = AudioProcessor()
 
-    # there's some start indicator for the audio stream
-    # as audio chunks come in, we need to accumulate them
-    # We need to indicate to the backend that the user has stopped pressing the spacebar
-
-    # Once they're done with that, then that buffered text is going to be sent off
-    # to the rest of the pipeline
-
     def handle_transcript(text):
         print(f"Received transcript: {text}")
+        print(f"Language code: {language_code}")
         buffer.append(text)
         print(f"Buffer: {buffer}")
 
     client = SpeechmaticsClient(
         api_key=os.getenv("SPEECHMATICS_API_KEY"),
-        language="en",
+        language=language_code,
         sample_rate=16000,
         on_transcript=handle_transcript,
     )
@@ -142,15 +142,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 message_data = json.loads(message)
                 audio_base64 = message_data.get("audio", "")
                 data = base64.b64decode(audio_base64)
-
                 terminal = message_data.get("terminal", False)
 
                 if terminal:
                     print(f"Terminal chunk received: {buffer}")
                     await translate_text_stream(
-                        " ".join(buffer),
-                        "English",
-                        "Spanish",
+                        ' '.join(buffer),
+                        language_code,
+                        "en",
                         broadcast=True,
                         voice_id="xeg56Dz2Il4WegdaPo82",
                     )
@@ -377,7 +376,7 @@ async def signup(data: dict):
             user = result.fetchone()
             conn.commit()
 
-            return {"id": str(user.id), "first_name": user.first_name}
+            return {"id": str(user.id), "first_name": user.first_name, "language_code": "en"}
     except Exception as e:
         return {"error": str(e)}
 
@@ -388,7 +387,7 @@ async def login(data: dict):
         with engine.connect() as conn:
             query = text(
                 """
-                SELECT id, first_name FROM users
+                SELECT id, first_name, language_code FROM users
                 WHERE first_name = :first_name
                 LIMIT 1
             """
@@ -399,7 +398,7 @@ async def login(data: dict):
             if not user:
                 return {"error": "User not found"}, 404
 
-            return {"id": str(user.id), "first_name": user.first_name}
+            return {"id": str(user.id), "first_name": user.first_name, "language_code": user.language_code}
     except Exception as e:
         return {"error": str(e)}
 
@@ -408,7 +407,7 @@ async def login(data: dict):
 async def get_users():
     try:
         with engine.connect() as conn:
-            query = text("SELECT id, first_name FROM users")
+            query = text("SELECT id, first_name, language_code FROM users")
             result = conn.execute(query)
             users = [
                 {"id": str(row.id), "first_name": row.first_name} for row in result
@@ -447,13 +446,42 @@ async def get_user_voices(user_id: str):
         return {"error": str(e)}
 
 
+@app.put("/users/{user_id}/language")
+async def update_user_language(user_id: str, language_code: str = Form(...)):
+    try:
+        print(f"Updating language for user {user_id} to {language_code}")
+        with engine.connect() as conn:
+            query = text(
+                """
+                UPDATE users
+                SET language_code = :language_code
+                WHERE id = :user_id
+                """
+            )
+            result = conn.execute(query, {"language_code": language_code, "user_id": user_id})
+            conn.commit()
+
+            # print(f"Result: {result.rowcount}")
+
+            print(f"Result: {result}")
+
+            print(f"Result: {result.fetchone()}")
+
+            if result.rowcount == 0:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            return {"message": "Language code updated successfully"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.get("/users/{user_id}")
 async def get_user(user_id: str):
     try:
         with engine.connect() as conn:
             query = text(
                 """
-                SELECT id, first_name FROM users
+                SELECT id, first_name, language_code FROM users
                 WHERE id = :user_id
                 """
             )
@@ -487,11 +515,6 @@ async def accept_call(data: dict):
         await connected_clients[recipient_id].send_json(
             {"type": "call_accepted", "caller_id": caller_id}
         )
-
-    await translate_text_stream(
-        "Hello, how are you?", "English", "Spanish", broadcast=True
-    )
-
 
 if __name__ == "__main__":
     import uvicorn

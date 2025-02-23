@@ -12,6 +12,16 @@ import { UserAuthModal } from "./UserAuthModal";
 
 const VoiceSetup: React.FC = () => {
   const { user, loading, login } = useAuth();
+  const [selectedLanguage, setSelectedLanguage] = useState<string>(user?.language_code || "");
+  const [isLanguageUpdating, setIsLanguageUpdating] = useState(false);
+  
+  const languages = [
+    { code: "en", name: "English" },
+    { code: "es", name: "Spanish" },
+    { code: "hi", name: "Hindi" },
+    { code: "cmn", name: "Chinese" },
+  ];
+
   // State management
   const [voiceName, setVoiceName] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -130,10 +140,42 @@ const VoiceSetup: React.FC = () => {
     setIsSuccess(false);
   };
 
-  const handleAuthSuccess = (userData: { id: string; first_name: string }) => {
+  const handleAuthSuccess = (userData: { id: string; first_name: string; language_code: string }) => {
     login(userData);
     setShowAuthModal(false);
   };
+
+// Add language update handler
+const handleLanguageUpdate = async (language: string) => {
+  if (!user) {
+    setError("Please log in first.");
+    return;
+  }
+
+  setIsLanguageUpdating(true);
+  setError(null);
+
+  try {
+    const formData = new FormData();
+    formData.append("language_code", language);
+
+    const response = await fetch(`http://localhost:8000/users/${user.id}/language`, {
+      method: "PUT",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to update language");
+    }
+
+    setSelectedLanguage(language);
+  } catch (err) {
+    console.error("Error updating language:", err);
+    setError("Failed to update language preference.");
+  } finally {
+    setIsLanguageUpdating(false);
+  }
+};
 
   useEffect(() => {
     if (user) {
@@ -153,6 +195,33 @@ const VoiceSetup: React.FC = () => {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
+            
+            {/* Add Language Selection Card */}
+            <Card className="w-full animate-float-in shadow-lg rounded-lg">
+              <CardContent className="pt-6 px-4">
+                <div className="flex flex-col space-y-4">
+                  <label className="text-sm font-medium text-white">Select Language</label>
+                  <select
+                    value={selectedLanguage}
+                    onChange={(e) => handleLanguageUpdate(e.target.value)}
+                    className="w-full p-3 border border-gray-600 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={isLanguageUpdating}
+                  >
+                    <option value="" className="text-gray-400">Choose a language</option>
+                    {languages.map((lang) => (
+                      <option key={lang.code} value={lang.code} className="text-white">
+                        {lang.name}
+                      </option>
+                    ))}
+                  </select>
+                  {isLanguageUpdating && (
+                    <div className="flex items-center justify-center">
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
             {existingVoice ? (
               <Card className="w-full animate-float-in">
                 <div className="flex-col justify-between mb-4">

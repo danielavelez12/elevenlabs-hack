@@ -27,8 +27,8 @@ completion = client.chat.completions.create(
 
 
 def translation_prompt(original_text: str, source_language: str, target_language: str):
-    print(f"Translating from {source_language} to {target_language}: {original_text}")
-    return f"Translate the following text from {source_language} to {target_language}: {original_text}"
+    print(f"Translating from language code: {source_language} to language code: {target_language}: {original_text}")
+    return f"Translate the following text from language code: {source_language} to language code: {target_language}: {original_text}"
 
 
 def translate_text(
@@ -137,8 +137,8 @@ async def text_to_speech_input_streaming(voice_id, text_iterator, broadcast=Fals
 
 async def translate_text_stream(
     original_text: str,
-    source_language: str = "English",
-    target_language: str = "Spanish",
+    source_language: str = "en",
+    target_language: str = "es",
     broadcast=False,
     voice_id="xeg56Dz2Il4WegdaPo82",
 ):
@@ -164,15 +164,3 @@ async def translate_text_stream(
         await text_to_speech_input_streaming(voice_id, text_iterator(), broadcast)
     except Exception as e:
         raise Exception(f"Translation failed: {str(e)}")
-
-
-if __name__ == "__main__":
-    ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
-    VOICE_ID = "YfQgJYCithpNui6mhEWk"
-
-    async def main():
-        await translate_text_stream(
-            "Hello, how are you?", "English", "Spanish", broadcast=True
-        )
-
-    asyncio.run(main())
