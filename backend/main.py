@@ -11,9 +11,10 @@ import aiohttp
 import asyncio
 import os
 import io
-import json
 import websockets
 from shared_state import connected_clients
+import base64
+import json
 
 load_dotenv()
 
@@ -81,13 +82,24 @@ class AudioProcessor:
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    buffer = []
+
     await websocket.accept()
 
     audio_processor = AudioProcessor()
 
+    # there's some start indicator for the audio stream
+    # as audio chunks come in, we need to accumulate them
+    # We need to indicate to the backend that the user has stopped pressing the spacebar
+
+    # Once they're done with that, then that buffered text is going to be sent off
+    # to the rest of the pipeline
+
     def handle_transcript(text):
         print(f"Received transcript: {text}")
-
+        buffer.append(text)
+        print(f"Buffer: {buffer}")
+    
     client = SpeechmaticsClient(
         api_key=os.getenv("SPEECHMATICS_API_KEY"),
         language="en",
@@ -104,9 +116,19 @@ async def websocket_endpoint(websocket: WebSocket):
 
         while True:
             try:
-                data = await websocket.receive_bytes()
+                message = await websocket.receive_text()
+                message_data = json.loads(message)
+                audio_base64 = message_data.get("audio", "")
+                data = base64.b64decode(audio_base64)
 
-                audio_processor.write_audio(data)
+                terminal = message_data.get("terminal", False)
+
+                if terminal:
+                    print(f"Terminal chunk received: {buffer}")
+                    await translate_text_stream(' '.join(buffer), "English", "Spanish", broadcast=True)
+                    buffer = []
+                else:
+                    audio_processor.write_audio(data)
             except Exception as ws_error:
                 print(f"WebSocket error: {ws_error}")
                 break
@@ -400,7 +422,7 @@ async def accept_call(data: dict):
             "caller_id": caller_id
         })
 
-    await translate_text_stream("Hello, how are you?", "Spanish", broadcast=True)
+    await translate_text_stream("Hello, how are you?", "English", "Spanish", broadcast=True)
 
 
 if __name__ == "__main__":
