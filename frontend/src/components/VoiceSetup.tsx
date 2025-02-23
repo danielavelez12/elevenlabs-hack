@@ -175,7 +175,7 @@ const VoiceSetup: React.FC = () => {
                   onClick={handleResetVoice}
                   className="w-full bg-blue-500 hover:bg-blue-600"
                 >
-                  Reset Voice
+                  Reset voice
                 </Button>
               </Card>
             ) : (
