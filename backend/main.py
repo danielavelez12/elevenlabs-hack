@@ -72,7 +72,11 @@ async def upload_audio(audio_file: UploadFile = File(...)):
 
 
 @app.post("/create-voice")
-async def create_voice(voice_name: str = Form(...), audio_file: UploadFile = File(...)):
+async def create_voice(
+    user_id: str = Form(...),
+    voice_name: str = Form(...),
+    audio_file: UploadFile = File(...),
+):
     print(voice_name, audio_file)
     try:
         content = await audio_file.read()
@@ -102,8 +106,6 @@ async def create_voice(voice_name: str = Form(...), audio_file: UploadFile = Fil
                 voice_id = result.get("voice_id")  # Get the voice ID from ElevenLabs
                 print(voice_id)
 
-                # Store voice information in database
-                user_id = "4f17d98c-e785-43d6-9fad-630a65f15e78"  # Your user ID
                 with engine.connect() as conn:
                     query = text(
                         """
