@@ -25,7 +25,7 @@ const Card = React.forwardRef<
   <AnimatedDiv
     ref={ref}
     className={cn(
-      "rounded-lg w-150 border py-10 bg-card text-card-foreground shadow-sm border-[#343645] bg-[#202533] flex flex-col items-center justify-center",
+      "rounded-lg w-150 border py-10 px-6 bg-card text-card-foreground shadow-sm border-[#343645] bg-[#202533] flex flex-col items-center justify-center",
       className
     )}
     {...props}

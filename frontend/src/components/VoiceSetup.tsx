@@ -157,7 +157,7 @@ const VoiceSetup: React.FC = () => {
               </Alert>
             )}
             {existingVoice ? (
-              <Card className="w-full p-4 animate-float-in">
+              <Card className="w-full animate-float-in">
                 <div className="flex-col justify-between mb-4">
                   <div className="flex items-center text-">
                     <div className="h-2 w-2 rounded-full bg-green-500 mr-2"></div>

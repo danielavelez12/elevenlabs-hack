@@ -23,8 +23,9 @@ const MakeCall: React.FC = () => {
     []
   );
   const [selectedUser, setSelectedUser] = useState<string>("");
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const { user, loading, login } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(true);
+  const { user, loading: authLoading, login } = useAuth();
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -32,12 +33,16 @@ const MakeCall: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
+      setLoading(true);
       const response = await fetch("http://localhost:8000/users");
       if (!response.ok) throw new Error("Failed to fetch users");
       const data = await response.json();
+      console.log(data);
       setUsers(data);
     } catch (error) {
       console.error("Error fetching users:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -127,40 +132,41 @@ const MakeCall: React.FC = () => {
     }
   };
 
+  console.log({ users });
+
   return (
     <div className="flex flex-col space-y-6 items-center justify-center h-full max-w-md mx-auto p-6">
-      {loading ? (
+      {authLoading || loading ? (
         <Loader2 className="h-8 w-8 animate-spin" />
-      ) : user ? (
-        <Card className="animate-float-in p-4">
-          <div className="mb-4">Welcome, {user.first_name}!</div>
-          <Select value={selectedUser} onValueChange={setSelectedUser}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select user to call" />
-            </SelectTrigger>
-            <SelectContent>
-              {users
-                .filter((user) => user.id !== user.id)
-                .map((user) => (
-                  <SelectItem key={user.id} value={user.id}>
-                    {user.first_name}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-          <audio ref={audioRef} className="mb-4" />
-          <Button
-            className="px-4 py-2 rounded bg-green-500 text-white hover:bg-green-600 h-10 w-60 mt-4"
-            onClick={handleStartCall}
-            disabled={started || !selectedUser}
-          >
-            {started ? "Call in progress..." : "Start call"}
-          </Button>
-        </Card>
       ) : (
-        <Button onClick={() => setShowAuthModal(true)}>Sign Up / Login</Button>
+        user && (
+          <Card className="animate-float-in">
+            <Select value={selectedUser} onValueChange={setSelectedUser}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select user to call" />
+              </SelectTrigger>
+              <SelectContent>
+                {users
+                  .filter((u) => u.id !== user.id)
+                  .map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.first_name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <audio ref={audioRef} className="mb-4" />
+            <Button
+              className="px-4 py-2 rounded bg-green-500 text-white hover:bg-green-600 h-10 w-60 mt-4"
+              onClick={handleStartCall}
+              disabled={started || !selectedUser}
+            >
+              {started ? "Call in progress..." : "Start call"}
+            </Button>
+          </Card>
+        )
       )}
-      {!loading && !user && (
+      {!authLoading && !user && (
         <UserAuthModal
           isOpen={showAuthModal}
           onClose={() => setShowAuthModal(false)}
