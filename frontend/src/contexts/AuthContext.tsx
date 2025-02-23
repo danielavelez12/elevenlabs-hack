@@ -47,10 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (user?.id) {
       ws = new WebSocket(
-        `${import.meta.env.VITE_API_SERVER_URL.replace(
-          "https",
-          "wss"
-        )}/ws/start?user_id=${user.id}`
+        `${import.meta.env.VITE_WS_SERVER_URL}/ws/start?user_id=${user.id}`
       );
 
       ws.onopen = () => {
