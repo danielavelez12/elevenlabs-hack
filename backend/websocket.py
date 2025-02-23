@@ -35,30 +35,22 @@ async def start_websocket_server():
     return server
 
 
-async def broadcast_audio_stream(audio_stream):
-    print("Broadcasting audio stream")
+async def broadcast_audio_stream(audio_stream, recipient_id):
+    print(f"Broadcasting audio stream to recipient: {recipient_id}")
     print(connected_clients)
     async for chunk in audio_stream:
         print("Chunk received")
-        if chunk and connected_clients:
-            print("Broadcasting audio chunk")
+        if chunk and recipient_id in connected_clients:
+            print(f"Sending audio chunk to recipient: {recipient_id}")
             # Convert bytes to base64 to ensure safe transmission
             chunk_base64 = base64.b64encode(chunk).decode("utf-8")
-            # Send as a WebSocket text message
-            await asyncio.gather(
-                *(
-                    client.send_text(
-                        json.dumps({"type": "audio_chunk", "data": chunk_base64})
-                    )
-                    for client in connected_clients.values()
-                )
+            # Send only to the intended recipient
+            await connected_clients[recipient_id].send_text(
+                json.dumps({"type": "audio_chunk", "data": chunk_base64})
             )
 
-    if connected_clients:
+    if recipient_id in connected_clients:
         # Send end of stream message as text
-        await asyncio.gather(
-            *(
-                client.send_text(json.dumps({"type": "end_of_stream"}))
-                for client in connected_clients.values()
-            )
+        await connected_clients[recipient_id].send_text(
+            json.dumps({"type": "end_of_stream"})
         )

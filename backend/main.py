@@ -223,6 +223,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         target_language_code,
                         broadcast=True,
                         voice_id=voice_id,
+                        recipient_id=recipient_id,
                     )
                     buffer = []
                     audio_processor.clear_buffer()

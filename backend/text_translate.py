@@ -95,7 +95,9 @@ async def stream(audio_stream):
     mpv_process.wait()
 
 
-async def text_to_speech_input_streaming(voice_id, text_iterator, broadcast=False):
+async def text_to_speech_input_streaming(
+    voice_id, text_iterator, broadcast=False, recipient_id=None
+):
     """Send text to ElevenLabs API and stream the returned audio."""
     uri = f"wss://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream-input?model_id=eleven_flash_v2_5"
 
@@ -124,7 +126,9 @@ async def text_to_speech_input_streaming(voice_id, text_iterator, broadcast=Fals
                     break
 
         if broadcast:
-            listen_task = asyncio.create_task(broadcast_audio_stream(listen()))
+            listen_task = asyncio.create_task(
+                broadcast_audio_stream(listen(), recipient_id=recipient_id)
+            )
         else:
             listen_task = asyncio.create_task(stream(listen()))
 
@@ -143,10 +147,11 @@ async def translate_text_stream(
     target_language: str = "es",
     broadcast=False,
     voice_id="xeg56Dz2Il4WegdaPo82",
+    recipient_id=None,
 ):
     """Streaming version of translate_text that works with ElevenLabs"""
     print(
-        f"Translating from language code: {source_language} to language code: {target_language}: {original_text}"
+        f"Translating from language code: {source_language} to language code: {target_language}: {original_text} to send to recipient: {recipient_id}"
     )
     prompt = translation_prompt(original_text, source_language, target_language)
     aclient = AsyncOpenAI(
@@ -166,6 +171,8 @@ async def translate_text_stream(
                 if chunk.choices[0].delta.content:
                     yield chunk.choices[0].delta.content
 
-        await text_to_speech_input_streaming(voice_id, text_iterator(), broadcast)
+        await text_to_speech_input_streaming(
+            voice_id, text_iterator(), broadcast, recipient_id
+        )
     except Exception as e:
         raise Exception(f"Translation failed: {str(e)}")
