@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 
 type User = {
   id: string;
@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user?.id]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     // Update localStorage whenever user state changes
     if (user) {
       localStorage.setItem("user", JSON.stringify(user));
