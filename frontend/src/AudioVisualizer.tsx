@@ -66,6 +66,9 @@ export const AudioVisualizer = () => {
           analyser.getByteFrequencyData(dataArray);
 
           // Apply smoothing
+          if (!previousDataRef.current) {
+            previousDataRef.current = new Uint8Array(bufferLength);
+          }
           const smoothedData = smoothData(dataArray, previousDataRef.current);
           previousDataRef.current.set(smoothedData);
 

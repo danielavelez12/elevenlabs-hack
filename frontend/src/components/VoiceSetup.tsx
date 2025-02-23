@@ -17,7 +17,6 @@ const VoiceSetup: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [voiceId, setVoiceId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(true);
@@ -100,7 +99,6 @@ const VoiceSetup: React.FC = () => {
 
       const data = await response.json();
       console.log("Voice clone created:", data);
-      setVoiceId(data.voice_id);
       // Reset form fields
       setVoiceName("");
       setAudioBlob(null);
@@ -130,7 +128,6 @@ const VoiceSetup: React.FC = () => {
   const handleResetVoice = () => {
     setExistingVoice(null);
     setIsSuccess(false);
-    setVoiceId(null);
   };
 
   const handleAuthSuccess = (userData: { id: string; first_name: string }) => {

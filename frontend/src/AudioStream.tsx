@@ -5,7 +5,7 @@ interface AudioStreamProps {
   userId?: string;
 }
 
-const AudioStream: React.FC<AudioStreamProps> = ({ userId }) => {
+const AudioStream: React.FC<AudioStreamProps> = () => {
   const { audioData, callState } = useAuth();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [started, setStarted] = useState(false);

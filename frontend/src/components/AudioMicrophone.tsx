@@ -75,31 +75,8 @@ const AudioMicrophone: React.FC = () => {
     const connectWebSocket = () => {
       try {
         websocketRef.current = new WebSocket("ws://localhost:8000/ws");
-
-        websocketRef.current.onopen = () => {
-          console.log("WebSocket connected");
-          setConnectionStatus("Connected");
-        };
-
-        websocketRef.current.onmessage = (event) => {
-          console.log("Received message:", event.data);
-          setTranscript((prev) => prev + " " + event.data);
-        };
-
-        websocketRef.current.onerror = (error) => {
-          console.error("WebSocket error:", error);
-          setConnectionStatus("Error");
-        };
-
-        websocketRef.current.onclose = () => {
-          console.log("WebSocket closed");
-          setConnectionStatus("Disconnected");
-          // Attempt to reconnect after 2 seconds
-          setTimeout(connectWebSocket, 2000);
-        };
       } catch (error) {
         console.error("WebSocket connection error:", error);
-        setConnectionStatus("Error");
       }
     };
 
@@ -122,6 +99,7 @@ const AudioMicrophone: React.FC = () => {
     } else if (callState.status === "idle") {
       handleStopRecording();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callState.status, websocketRef.current?.readyState]);
 
   const handleStartRecording = useCallback(
@@ -143,7 +121,6 @@ const AudioMicrophone: React.FC = () => {
           deviceId,
           audioContext: audioContext!,
         });
-        setIsRecording(true);
       } catch (error) {
         console.error("Error accessing microphone:", error);
         alert("Error accessing microphone: " + error);
@@ -162,7 +139,6 @@ const AudioMicrophone: React.FC = () => {
   const handleStopRecording = () => {
     stopRecording();
     closeAudioContext();
-    setIsRecording(false);
   };
 
   return (

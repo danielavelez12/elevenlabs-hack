@@ -43,6 +43,9 @@ export default {
       animation: {
         "float-in": "float-in 0.5s ease-out forwards",
       },
+      fontFamily: {
+        sans: ["Inter", "sans-serif"],
+      },
     },
   },
   plugins: [],

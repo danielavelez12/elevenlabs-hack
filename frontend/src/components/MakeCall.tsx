@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import AudioStream from "../AudioStream";
 import { AudioVisualizer } from "../AudioVisualizer";
 import { useAuth } from "../contexts/AuthContext";
+import AudioMicrophone from "./AudioMicrophone";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import {
@@ -14,7 +15,6 @@ import {
   SelectValue,
 } from "./ui/select";
 import { UserAuthModal } from "./UserAuthModal";
-import AudioMicrophone from "./AudioMicrophone";
 
 type Timeout = ReturnType<typeof setInterval>;
 
@@ -203,7 +203,7 @@ const MakeCall: React.FC = () => {
               </SelectTrigger>
               <SelectContent>
                 {users
-                  .filter((u) => u.id !== user.id)
+                  .filter((u) => u.id !== user?.id)
                   .map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.first_name}
