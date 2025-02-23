@@ -1,7 +1,7 @@
+from services.speech_to_text.speechmatics_client import SpeechmaticsClient
 from text_translate import translate_text, translate_text_stream, start_websocket_server
 from fastapi import FastAPI, WebSocket, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from services.speech_to_text.speechmatics_client import SpeechmaticsClient
 from sqlalchemy import create_engine, text
 from datetime import datetime
 from contextlib import asynccontextmanager
@@ -15,6 +15,9 @@ import websockets
 from shared_state import connected_clients, ongoing_calls
 import base64
 import json
+import logging
+
+logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.DEBUG)
 
 load_dotenv()
 
@@ -194,7 +197,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 """
                 )
                 result = conn.execute(query, {"recipient_id": recipient_id})
-                print("language code query result", result)
                 target_language_code = result.fetchone().language_code
         except Exception as e:
             print(f"Error fetching voice ID: {e}")
@@ -209,6 +211,10 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if terminal:
                     print(f"Terminal chunk received: {buffer}")
+                    cleaned_buffer = [item for item in buffer if len(item) > 0]
+                    if len(cleaned_buffer) == 0:
+                        print("Buffer is empty, skipping")
+                        continue
                     # Cancel existing transcription task
                     if transcription_task:
                         transcription_task.cancel()
@@ -217,8 +223,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         except asyncio.CancelledError:
                             print("Transcription task cancelled")
 
+                    print("buffer: ", cleaned_buffer)
                     await translate_text_stream(
-                        " ".join(buffer),
+                        " ".join(cleaned_buffer),
                         source_language_code,
                         target_language_code,
                         broadcast=True,
@@ -245,12 +252,24 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         print(f"Error in main loop: {e}")
     finally:
+        # Cancel transcription task if it exists
         if "transcription_task" in locals():
             transcription_task.cancel()
             try:
                 await transcription_task
             except asyncio.CancelledError:
                 print("Transcription task cancelled")
+
+        # Clean up audio processor
+        if "audio_processor" in locals():
+            audio_processor.clear_buffer()
+
+        # Close websocket connection explicitly
+        try:
+            await websocket.close(code=1000)  # 1000 is normal closure
+        except Exception as e:
+            print(f"Error closing websocket: {e}")
+
         print("WebSocket connection closed")
 
 
