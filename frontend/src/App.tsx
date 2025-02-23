@@ -18,10 +18,53 @@ const App: React.FC = () => {
   const { startRecording, stopRecording } = usePCMAudioRecorder()
   const websocketRef = useRef<WebSocket | null>(null)
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null)
+  const [spacebarPressed, setSpacebarPressed] = useState(false)
+  const [terminalChunkSent, setTerminalChunkSent] = useState(true)
 
   usePCMAudioListener((audio: Float32Array) => {
-    websocketRef.current?.send(audio.buffer)
+    if (spacebarPressed) {
+      console.log('Sending audio chunk')
+      const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audio.buffer)));
+      websocketRef.current?.send(JSON.stringify({ audio: base64Audio, terminal: false }))
+    } else {
+      if (!terminalChunkSent) {
+        console.log('Sending terminal chunk')
+        websocketRef.current?.send(JSON.stringify({ audio: '', terminal: true }))
+        setTerminalChunkSent(true)
+      }
+    }
   })
+
+  // Detecting spacebar presses
+  useEffect(() => {
+    const handleSpacebarPress = (event: KeyboardEvent) => {
+      if (event.key === ' ') {
+        setSpacebarPressed(true)
+        setTerminalChunkSent(false)
+      }
+    } 
+
+    window.addEventListener('keydown', handleSpacebarPress)
+
+    return () => {
+      window.removeEventListener('keydown', handleSpacebarPress)
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleSpacebarRelease = (event: KeyboardEvent) => {
+      if (event.key === ' ') {
+        setSpacebarPressed(false)
+      }
+    }
+
+    window.addEventListener('keyup', handleSpacebarRelease)
+
+
+    return () => {
+      window.removeEventListener('keyup', handleSpacebarRelease)
+    }
+  }, [])
   
   const handleStartRecording = useCallback(async ({
     deviceId,
@@ -77,9 +120,7 @@ const App: React.FC = () => {
             <Route path="/voice-setup" element={<VoiceSetup />} />
             <Route path="/make-call" element={<MakeCall />} />
           </Routes>
-        </main>
-      </div>
-      <h1>Audio Transcription Test</h1>
+          <h1>Audio Transcription Test</h1>
       <div className="card">
         <div style={{ marginBottom: '10px' }}>
           Connection Status: <span style={{
@@ -103,6 +144,14 @@ const App: React.FC = () => {
           <h3>Transcript:</h3>
           <p>{transcript}</p>
         </div>
+
+        <div style={{ marginTop: '20px', maxWidth: '500px' }}>
+          <h3>Spacebar Pressed:</h3>
+          <p style={{ color: spacebarPressed ? 'green' : 'red' }}>{spacebarPressed ? 'True' : 'False'}</p>
+        </div>
+      </div>
+
+        </main>
       </div>
     </Router>
   );

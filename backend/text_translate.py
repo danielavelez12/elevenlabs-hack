@@ -26,12 +26,12 @@ completion = client.chat.completions.create(
 )
 
 
-def translation_prompt(original_text: str, target_language: str):
-    return f"Translate the following text from English to {target_language}: {original_text}"
+def translation_prompt(original_text: str, source_language: str, target_language: str):
+    return f"Translate the following text from {source_language} to {target_language}: {original_text}"
 
 
-def translate_text(original_text: str, target_language: str = "Spanish") -> str:
-    prompt = translation_prompt(original_text, target_language)
+def translate_text(original_text: str, source_language: str, target_language: str) -> str:
+    prompt = translation_prompt(original_text, source_language, target_language)
     try:
         completion = client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -133,7 +133,7 @@ async def text_to_speech_input_streaming(voice_id, text_iterator, broadcast=Fals
 
 
 async def translate_text_stream(
-    original_text: str, target_language: str = "Spanish", broadcast=False
+    original_text: str, source_language: str = "English", target_language: str = "Spanish", broadcast=False
 ):
     """Streaming version of translate_text that works with ElevenLabs"""
     prompt = translation_prompt(original_text, target_language)
@@ -166,6 +166,6 @@ if __name__ == "__main__":
     VOICE_ID = "YfQgJYCithpNui6mhEWk"
 
     async def main():
-        await translate_text_stream("Hello, how are you?", "Spanish", broadcast=True)
+        await translate_text_stream("Hello, how are you?", "English", "Spanish", broadcast=True)
 
     asyncio.run(main())
