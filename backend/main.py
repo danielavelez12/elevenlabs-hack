@@ -15,9 +15,6 @@ import websockets
 from shared_state import connected_clients, ongoing_calls
 import base64
 import json
-import logging
-
-logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.DEBUG)
 
 load_dotenv()
 

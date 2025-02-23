@@ -8,6 +8,7 @@ from speechmatics.models import (
     AudioSettings,
 )
 
+
 class SpeechmaticsClient:
     def __init__(
         self,
@@ -37,6 +38,7 @@ class SpeechmaticsClient:
 
     def _sync_handle_transcript(self, msg):
         transcript = msg["metadata"]["transcript"]
+        print("handle transcript")
         if self.on_transcript:
             self.on_transcript(transcript)
 
@@ -45,7 +47,7 @@ class SpeechmaticsClient:
     ) -> AsyncGenerator[str, None]:
         config = TranscriptionConfig(
             language=self.language,
-            max_delay=2,
+            max_delay=1,
         )
 
         settings = AudioSettings()
@@ -56,7 +58,7 @@ class SpeechmaticsClient:
         try:
             await asyncio.get_event_loop().run_in_executor(
                 None,
-                self.ws_client.run_synchronously,
+                self.ws_client.run_asynchronously,
                 audio_processor,
                 config,
                 settings,
