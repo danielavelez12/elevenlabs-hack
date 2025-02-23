@@ -155,7 +155,7 @@ async def translate_text_stream(
                     yield chunk.choices[0].delta.content
 
         await text_to_speech_input_streaming(
-            "xOWgg0W8m4WCIRefvjJv", text_iterator(), broadcast
+            "xeg56Dz2Il4WegdaPo82", text_iterator(), broadcast
         )
     except Exception as e:
         raise Exception(f"Translation failed: {str(e)}")

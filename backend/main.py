@@ -143,6 +143,90 @@ async def start_call():
         return {"error": str(e)}
 
 
+@app.post("/signup")
+async def signup(data: dict):
+    try:
+        with engine.connect() as conn:
+            query = text(
+                """
+                INSERT INTO users (first_name)
+                VALUES (:first_name)
+                RETURNING id, first_name
+            """
+            )
+            result = conn.execute(query, {"first_name": data["first_name"]})
+            user = result.fetchone()
+            conn.commit()
+
+            return {"id": str(user.id), "first_name": user.first_name}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/login")
+async def login(data: dict):
+    try:
+        with engine.connect() as conn:
+            query = text(
+                """
+                SELECT id, first_name FROM users
+                WHERE first_name = :first_name
+                LIMIT 1
+            """
+            )
+            result = conn.execute(query, {"first_name": data["first_name"]})
+            user = result.fetchone()
+
+            if not user:
+                return {"error": "User not found"}, 404
+
+            return {"id": str(user.id), "first_name": user.first_name}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/users")
+async def get_users():
+    try:
+        with engine.connect() as conn:
+            query = text("SELECT id, first_name FROM users")
+            result = conn.execute(query)
+            users = [
+                {"id": str(row.id), "first_name": row.first_name} for row in result
+            ]
+            return users
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/users/{user_id}/voices")
+async def get_user_voices(user_id: str):
+    try:
+        with engine.connect() as conn:
+            query = text(
+                """
+                SELECT v.id, v.external_id, v.created_at
+                FROM voices v
+                WHERE v.user_id = :user_id
+                ORDER BY v.created_at DESC
+                LIMIT 1
+            """
+            )
+            result = conn.execute(query, {"user_id": user_id})
+            voice = result.fetchone()
+
+            if not voice:
+                return None
+
+            return {
+                "id": str(voice.id),
+                "external_id": voice.external_id,
+                "created_at": voice.created_at.isoformat(),
+            }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 if __name__ == "__main__":
     import uvicorn
 
